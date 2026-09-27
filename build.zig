@@ -84,6 +84,12 @@ pub fn build(b: *std.Build) !void
     run_step.dependOn(&run_cmd.step);
 
     // Tests
+    
+    var test_sources: std.ArrayList([]const u8) = .empty;
+    try test_sources.append(b.allocator, "src/Tests/main.cpp");
+    try test_sources.appendSlice(b.allocator, try utils.Tests.collectFrom(b, "src/Tests/Unit"));
+    try test_sources.appendSlice(b.allocator, try utils.Tests.collectFromModules(b, "src/Modules"));
+
     const gtest_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
@@ -110,10 +116,7 @@ pub fn build(b: *std.Build) !void
     });
 
     test_mod.addCSourceFiles(.{
-        .files = &.{
-            "src/Tests/main.cpp",
-            "src/Tests/Unit/Utils.cpp",
-        },
+        .files = try test_sources.toOwnedSlice(b.allocator),
         .flags = &.{"-std=c++17"},
     });
 
