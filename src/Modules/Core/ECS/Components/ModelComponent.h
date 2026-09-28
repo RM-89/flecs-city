@@ -2,14 +2,15 @@
 
 #include <raylib.h>
 
+#include "Assets/AssetTypes.h"
+
 namespace fc
 {
 
-/// @brief Wrapper for a Raylib Model.
+/// @brief References a model asset by ID.
 struct ModelComponent
 {
-    // TODO: Store a reference to the model instead of the model data so that this component can be replicated and the model can be loaded only where it's needed (i.e. in monolith or client modes)
-    Model mModel;
+    Assets::AssetId mModelAssetId;
 
     float mScale = 1.f;
     Color mTint = WHITE;

@@ -13,6 +13,7 @@
 
 #include "ECS/Components/CameraComponent.h"
 #include "ECS/Components/ModelComponent.h"
+#include "ECS/Components/ModelInstanceComponent.h"
 #include "ECS/Components/PositionComponent.h"
 #include "ECS/Components/TextComponent.h"
 #include "ECS/Phases.h"
@@ -33,10 +34,11 @@ static void RegisterComponents(ECS::ComponentRegistry* registry)
     registry->RegisterComponent<ReplicatedComponent>();
 
     registry->RegisterComponent<CameraComponent>().add(flecs::Singleton);
-    registry->RegisterComponent<ModelComponent>();
+    registry->RegisterComponent<ModelInstanceComponent>();
 
     registry->RegisterReplicatedComponent<PositionComponent>("PositionComponent");
     registry->RegisterReplicatedComponent<TextComponent>("TextComponent");
+    registry->RegisterReplicatedComponent<ModelComponent>("ModelComponent");
 }
 
 static void InitCommonECS(flecs::world& ecs)
@@ -46,9 +48,10 @@ static void InitCommonECS(flecs::world& ecs)
 
 static void InitServerECS(flecs::world& ecs)
 {
-    flecs::entity replicatedEntity = ecs.entity().set<ReplicatedComponent>({});
-    replicatedEntity.set<PositionComponent>({20, 20, 0});
-    replicatedEntity.set<TextComponent>("Hello world");
+    ecs.entity()
+        .set<ReplicatedComponent>({})
+        .set<PositionComponent>({20, 20, 0})
+        .set<TextComponent>("");
 
     static auto serverStartTime = std::chrono::steady_clock::now();
     ecs.system<ReplicatedComponent, TextComponent>("UpdateText")
@@ -59,6 +62,21 @@ static void InitServerECS(flecs::world& ecs)
             sprintf(textComponent.mText, "Time elapsed since server start: %ds", seconds);
             e.modified<TextComponent>();
         });
+
+    ecs.entity()
+        .set<ReplicatedComponent>({})
+        .set<PositionComponent>({1.0, 0, 1.0})
+        .set<ModelComponent>({Assets::MakeAssetId("building_A", ModelAssetType)});
+
+    ecs.entity()
+        .set<ReplicatedComponent>({})
+        .set<PositionComponent>({3.0, 0, 1.0})
+        .set<ModelComponent>({Assets::MakeAssetId("building_B", ModelAssetType)});
+
+    ecs.entity()
+        .set<ReplicatedComponent>({})
+        .set<PositionComponent>({5.0, 0, 1.0})
+        .set<ModelComponent>({Assets::MakeAssetId("building_C", ModelAssetType)});
 }
 
 static void InitClientECS(flecs::world& ecs)
@@ -71,23 +89,6 @@ static void InitClientECS(flecs::world& ecs)
     camera3D.projection = CAMERA_PERSPECTIVE;
 
     ecs.set<CameraComponent>({camera3D});
-
-    if (const Assets::Asset* asset = Assets::GetAsset(Assets::MakeAssetId("building_A", ModelAssetType)))
-    {
-        spdlog::info("Found model asset {}", asset->mIdString);
-    }
-
-    flecs::entity buildingA = ecs.entity()
-                                 .set<PositionComponent>({1.0, 0, 1.0})
-                                 .set<ModelComponent>({LoadModel("assets/models/building_A.gltf")});
-
-    flecs::entity buildingB = ecs.entity()
-                                 .set<PositionComponent>({3.0, 0, 1.0})
-                                 .set<ModelComponent>({LoadModel("assets/models/building_B.gltf")});
-
-    flecs::entity buildingC = ecs.entity()
-                                 .set<PositionComponent>({5.0, 0, 1.0})
-                                 .set<ModelComponent>({LoadModel("assets/models/building_C.gltf")});
 
     gPreDrawSystem = ecs.system<CameraComponent>()
                          .kind(fc::PreDraw)
@@ -113,9 +114,22 @@ static void InitClientECS(flecs::world& ecs)
             DrawGrid(20, 2.0f);
         });
 
-    ecs.system<const PositionComponent, const ModelComponent>("DrawModels")
+    ecs.system<const ModelComponent>("LoadModels")
+        .with<PositionComponent>()
+        .without<ModelInstanceComponent>()
         .kind(fc::Draw3D)
-        .each([](const PositionComponent& position, const ModelComponent& model) {
+        .each([](const flecs::entity e, const ModelComponent& model) {
+            const ModelAsset* asset = static_cast<ModelAsset*>(Assets::GetAsset(model.mModelAssetId));
+            e.set<ModelInstanceComponent>({
+                .mModel = LoadModel(asset->mModelPath.c_str()),
+                .mScale = model.mScale,
+                .mTint = model.mTint
+            });
+        });
+
+    ecs.system<const PositionComponent, const ModelInstanceComponent>("DrawModels")
+        .kind(fc::Draw3D)
+        .each([](const PositionComponent& position, const ModelInstanceComponent& model) {
             DrawModel(model.mModel, position.mPosition, model.mScale, model.mTint);
         });
 
