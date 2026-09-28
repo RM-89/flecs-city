@@ -34,9 +34,9 @@ struct Asset
     virtual ~Asset() = default;
 };
 
-using DeserializeFunc = Asset* (*)(const nlohmann::json& json, const std::string& directoryPath);
+using DeserialiseFunc = Asset* (*)(const nlohmann::json& json, const std::string& directoryPath);
 
-inline void Deserialize(const nlohmann::json& json, Asset* asset)
+inline void Deserialise(const nlohmann::json& json, Asset* asset)
 {
     json.at("id").get_to(asset->mIdString);
 }

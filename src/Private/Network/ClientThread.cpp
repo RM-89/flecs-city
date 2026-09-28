@@ -101,7 +101,7 @@ void ClientThread::HandleEvent(const ENetEvent& event)
                 case Channel::Replication:
                 {
                     std::vector<uint8_t> data(event.packet->data, event.packet->data + event.packet->dataLength);
-                    auto request = ReplicationRequest::Deserialize(data);
+                    auto request = ReplicationRequest::Deserialise(data);
 
                     {
                         std::lock_guard<std::mutex> lock(mReplicationMutex);

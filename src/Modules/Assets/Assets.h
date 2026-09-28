@@ -14,7 +14,7 @@ namespace fc::Assets
 {
 
 /// @brief Registers an asset type. Must be called before Initialise.
-ASSETS_API void RegisterType(const std::string& name, DeserializeFunc deserializeFunc);
+ASSETS_API void RegisterType(const std::string& name, DeserialiseFunc deserialiseFunc);
 
 /// @brief Recursively scans the given asset root for valid asset manifests and builds the asset registry.
 ///

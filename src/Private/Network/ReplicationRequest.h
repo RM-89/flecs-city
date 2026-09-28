@@ -61,7 +61,7 @@ struct ReplicationRequest
         return buffer;
     }
 
-    static ReplicationRequest Deserialize(const std::vector<uint8_t>& buffer)
+    static ReplicationRequest Deserialise(const std::vector<uint8_t>& buffer)
     {
         ReplicationRequest request;
         size_t offset = 0;

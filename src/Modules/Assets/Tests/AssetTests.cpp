@@ -21,10 +21,10 @@ struct FooAsset : Asset
 
     inline static const std::string Type = "foo";
 
-    static Asset* Deserialize(const nlohmann::json& json, const std::string& directoryPath)
+    static Asset* Deserialise(const nlohmann::json& json, const std::string& directoryPath)
     {
         FooAsset asset;
-        fc::Assets::Deserialize(json, &asset);
+        fc::Assets::Deserialise(json, &asset);
 
         asset.mFoo = json.value("foo", std::string{});
 
@@ -38,10 +38,10 @@ struct BarAsset : Asset
 
     inline static const std::string Type = "bar";
 
-    static Asset* Deserialize(const nlohmann::json& json, const std::string& directoryPath)
+    static Asset* Deserialise(const nlohmann::json& json, const std::string& directoryPath)
     {
         BarAsset asset;
-        fc::Assets::Deserialize(json, &asset);
+        fc::Assets::Deserialise(json, &asset);
 
         asset.mBar = json.value("bar", -1);
 
@@ -71,8 +71,8 @@ protected:
         WriteManifest("duplicate_b.json", R"({"id": "duplicate", "type": "foo", "foo": "second"})");
 
         // Types must be registered before Initialise scans the tree.
-        fc::Assets::RegisterType(FooAsset::Type, &FooAsset::Deserialize);
-        fc::Assets::RegisterType(BarAsset::Type, &BarAsset::Deserialize);
+        fc::Assets::RegisterType(FooAsset::Type, &FooAsset::Deserialise);
+        fc::Assets::RegisterType(BarAsset::Type, &BarAsset::Deserialise);
 
         if (!fc::Assets::Initialise(mRoot.string().c_str()))
             throw std::runtime_error("could not initialise the registry from '" + mRoot.string() + "'");

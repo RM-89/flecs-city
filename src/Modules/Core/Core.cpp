@@ -28,7 +28,7 @@ flecs::system gEndDrawSystem;
 
 static void RegisterAssetTypes()
 {
-    Assets::RegisterType(ModelAsset::Type, &ModelAsset::Deserialize);
+    Assets::RegisterType(ModelAsset::Type, &ModelAsset::Deserialise);
 }
 
 static void RegisterComponents(ECS::ComponentRegistry* registry)

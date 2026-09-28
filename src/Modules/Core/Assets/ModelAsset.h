@@ -21,10 +21,10 @@ struct ModelAsset : Assets::Asset
 
     inline static const std::string Type = "model";
 
-    static Asset* Deserialize(const nlohmann::json& json, const std::string& directoryPath)
+    static Asset* Deserialise(const nlohmann::json& json, const std::string& directoryPath)
     {
         ModelAsset asset;
-        Assets::Deserialize(json, &asset);
+        Assets::Deserialise(json, &asset);
 
         asset.mScale = json.value("scale", 1.0f);
 

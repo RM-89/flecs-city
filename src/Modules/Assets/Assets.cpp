@@ -26,7 +26,7 @@ constexpr const char* MANIFEST_SUFFIX = ".json";
 /// @brief Represents a registered asset type.
 struct AssetType
 {
-    DeserializeFunc mDeserialize;
+    DeserialiseFunc mDeserialise;
 };
 
 std::unordered_map<std::string, AssetType> gTypes = {};
@@ -109,7 +109,7 @@ Asset* LoadAsset(const fs::path& manifestPath, const fs::path& root)
     const AssetType& type = it->second;
     try
     {
-        Asset* asset = type.mDeserialize(manifest, manifestDirectoryPath);
+        Asset* asset = type.mDeserialise(manifest, manifestDirectoryPath);
         asset->mId = MakeAssetId(asset->mIdString.c_str(), typeName);
         asset->mRelativePath = manifestPathRelative;
         return asset;
@@ -176,7 +176,7 @@ bool CollectAssets(const fs::path& root, std::vector<Asset*>& outAssets)
 
 }
 
-void RegisterType(const std::string& name, DeserializeFunc deserializeFunc)
+void RegisterType(const std::string& name, DeserialiseFunc deserialiseFunc)
 {
     if (gTypes.find(name) != gTypes.end())
     {
@@ -184,7 +184,7 @@ void RegisterType(const std::string& name, DeserializeFunc deserializeFunc)
         return;
     }
 
-    gTypes.insert({name, {deserializeFunc}});
+    gTypes.insert({name, {deserialiseFunc}});
 }
 
 bool Initialise(const char* assetRoot)
