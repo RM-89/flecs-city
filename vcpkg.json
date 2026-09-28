@@ -6,8 +6,10 @@
       "name": "flecs",
       "version>=": "4.1.5"
     },
+    "fmt",
     "glfw3",
     "gtest",
+    "nlohmann-json",
     "raylib",
     {
       "name": "spdlog",

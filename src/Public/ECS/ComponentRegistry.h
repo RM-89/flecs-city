@@ -9,7 +9,7 @@
 #include <flecs.h>
 
 #include "ReplicatedComponent.h"
-#include "Utils/Hash.h"
+#include "Utils/String.h"
 
 namespace fc::ECS
 {
@@ -49,7 +49,7 @@ class ComponentRegistry
         ComponentDescriptor desc(name);
         desc.mComponentId = mEcs.id<T>();
         desc.mSize = sizeof(T);
-        desc.mTypeHash = Utils::HashString(name);
+        desc.mTypeHash = Utils::String::HashString(name);
 
         mIdToDescriptor[desc.mComponentId] = desc;
         mHashToId[desc.mTypeHash] = desc.mComponentId;

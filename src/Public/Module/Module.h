@@ -10,6 +10,9 @@ namespace fc
 /// @brief Function pointers for initialising a module.
 struct Module
 {
+    /// @brief For registering asset types via fc::Assets::RegisterType.
+    void (*RegisterAssetTypes)();
+
     /// @brief For registering ECS components. Called for all modules before the Init* functions below.
     /// @param registry The component registry to use.
     void (*RegisterComponents)(ECS::ComponentRegistry* registry);

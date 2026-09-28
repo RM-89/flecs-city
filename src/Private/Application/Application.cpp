@@ -1,8 +1,10 @@
 #include "Application.h"
 
 #include <enet/enet.h>
+#include <nlohmann/json.hpp>
 #include <raylib.h>
 
+#include "Assets/Assets.h"
 #include "Logging/Utils.h"
 #include "Network/ClientThread.h"
 #include "Network/ReplicationRequest.h"
@@ -12,6 +14,8 @@ namespace fc
 
 constexpr int DEFAULT_WINDOW_WIDTH{800};
 constexpr int DEFAULT_WINDOW_HEIGHT{600};
+
+constexpr const char* DEFAULT_ASSET_ROOT{"assets"};
 
 Application::Application()
 {
@@ -27,8 +31,21 @@ int Application::Run(fc::Environment::Options& options, std::vector<Module>& mod
 {
     fc::Logging::Initialise();
 
+    spdlog::info("Registering asset types...");
+    for (const auto module : modules)
+    {
+        module.RegisterAssetTypes();
+    }
+
+    spdlog::info("Initialising asset registry...");
+    if (!Assets::Initialise(DEFAULT_ASSET_ROOT))
+    {
+        spdlog::error("Asset registry initialisation failed. Aborting startup.");
+        return -1;
+    }
+
     spdlog::info("Registering components...");
-    for (auto module : modules)
+    for (const auto module : modules)
     {
         module.RegisterComponents(mComponentRegistry);
     }
@@ -36,7 +53,7 @@ int Application::Run(fc::Environment::Options& options, std::vector<Module>& mod
     // For client and monolith modes
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 
-    int status;
+    int status = 0;
     if (options.IsServer() || options.IsClient())
     {
         if (options.IsServer())
@@ -53,10 +70,12 @@ int Application::Run(fc::Environment::Options& options, std::vector<Module>& mod
         status = RunAsMonolith(options, modules);
     }
 
-    for (auto module : modules)
+    for (const auto module : modules)
     {
         module.Cleanup(mEcs);
     }
+
+    Assets::Shutdown();
 
     return status;
 }
@@ -121,7 +140,7 @@ int Application::RunAsMonolith(fc::Environment::Options& options, std::vector<Mo
     SetTargetFPS(60);
 
     spdlog::info("Initialising ECS...");
-    for (auto module : modules)
+    for (const auto module : modules)
     {
         module.InitCommonECS(mEcs);
         module.InitServerECS(mEcs);
@@ -139,7 +158,7 @@ int Application::RunAsMonolith(fc::Environment::Options& options, std::vector<Mo
     return 0;
 }
 
-void Application::UpdateReplication(fc::Network::ServerThread& serverThread)
+void Application::UpdateReplication(fc::Network::ServerThread& serverThread) const
 {
     mEcs.each<ReplicatedComponent>([&](flecs::entity e, ReplicatedComponent& rep)
     {

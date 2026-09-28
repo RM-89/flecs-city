@@ -3,6 +3,7 @@ const zcc = @import("compile_commands");
 const Vcpkg = @import("zig/vcpkg.zig").Vcpkg;
 const utils = @import("zig/utils.zig");
 const core = @import("src/Modules/Core/build.zig");
+const assets = @import("src/Modules/Assets/build.zig");
 
 pub fn build(b: *std.Build) !void
 {
@@ -63,7 +64,10 @@ pub fn build(b: *std.Build) !void
         mod.linkSystemLibrary("glfw", .{});
     }
 
-    const core_lib = core.build(b, target, optimize, vcpkg);
+    const assets_lib = assets.build(b, target, optimize, vcpkg);
+    mod.linkLibrary(assets_lib);
+
+    const core_lib = core.build(b, target, optimize, vcpkg, assets_lib);
     mod.linkLibrary(core_lib);
 
     const exe = b.addExecutable(.{
@@ -73,9 +77,11 @@ pub fn build(b: *std.Build) !void
 
     b.installArtifact(exe);
     b.installArtifact(core_lib);
+    b.installArtifact(assets_lib);
 
     try targets.append(b.allocator, exe);
     try targets.append(b.allocator, core_lib);
+    try targets.append(b.allocator, assets_lib);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
@@ -124,11 +130,13 @@ pub fn build(b: *std.Build) !void
     test_mod.addCMacro("FMT_HEADER_ONLY", "1");
 
     test_mod.addIncludePath(b.path("src/Public"));
+    test_mod.addIncludePath(b.path("src/Modules"));
     test_mod.addIncludePath(vcpkg.inc_path);
     test_mod.addLibraryPath(vcpkg.lib_path);
 
     test_mod.linkSystemLibrary("c++", .{});
     test_mod.linkLibrary(gtest_lib);
+    test_mod.linkLibrary(assets_lib);
     test_mod.linkLibrary(core_lib);
 
     const test_exe = b.addExecutable(.{
@@ -142,6 +150,7 @@ pub fn build(b: *std.Build) !void
 
     const test_cmd = b.addRunArtifact(test_exe);
     test_cmd.step.dependOn(b.getInstallStep());
+    test_cmd.setCwd(b.path("."));
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&test_cmd.step);

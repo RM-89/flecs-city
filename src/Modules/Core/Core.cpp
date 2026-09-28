@@ -1,5 +1,8 @@
 #include "Core.h"
 
+#include "Assets/Assets.h"
+#include "Assets/ModelAsset.h"
+
 #include <flecs.h>
 #include <raylib.h>
 #include <chrono>
@@ -19,6 +22,11 @@ namespace fc::Core
 
 flecs::system gPreDrawSystem;
 flecs::system gEndDrawSystem;
+
+static void RegisterAssetTypes()
+{
+    Assets::RegisterType(ModelAssetType);
+}
 
 static void RegisterComponents(ECS::ComponentRegistry* registry)
 {
@@ -63,6 +71,11 @@ static void InitClientECS(flecs::world& ecs)
     camera3D.projection = CAMERA_PERSPECTIVE;
 
     ecs.set<CameraComponent>({camera3D});
+
+    if (const Assets::Asset* asset = Assets::GetAsset(Assets::MakeAssetId("building_A", ModelAssetType)))
+    {
+        spdlog::info("Found model asset {}", asset->mIdString);
+    }
 
     flecs::entity buildingA = ecs.entity()
                                  .set<PositionComponent>({1.0, 0, 1.0})
@@ -121,11 +134,12 @@ static void Cleanup(flecs::world& ecs)
 }
 
 fc::Module MODULE{
-    &RegisterComponents,
-    &InitCommonECS,
-    &InitServerECS,
-    &InitClientECS,
-    &Cleanup
+    .RegisterAssetTypes = &RegisterAssetTypes,
+    .RegisterComponents = &RegisterComponents,
+    .InitCommonECS = &InitCommonECS,
+    .InitServerECS = &InitServerECS,
+    .InitClientECS = &InitClientECS,
+    .Cleanup = &Cleanup
 };
 
 }; // namespace fc::Core

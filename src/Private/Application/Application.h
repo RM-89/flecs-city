@@ -39,7 +39,7 @@ private:
     int RunAsClient(fc::Environment::Options& options, std::vector<Module>& modules);
     int RunAsMonolith(fc::Environment::Options& options, std::vector<Module>& modules);
 
-    void UpdateReplication(fc::Network::ServerThread& serverThread);
+    void UpdateReplication(fc::Network::ServerThread& serverThread) const;
 };
 
 }  // namespace fc

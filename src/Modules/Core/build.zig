@@ -2,7 +2,7 @@ const std = @import("std");
 const Vcpkg = @import("../../../zig/vcpkg.zig").Vcpkg;
 const build_utils = @import("../../../zig/utils.zig");
 
-pub fn build(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, vcpkg: Vcpkg) *std.Build.Step.Compile
+pub fn build(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, vcpkg: Vcpkg, assets: *std.Build.Step.Compile) *std.Build.Step.Compile
 {
     const mod = b.createModule(.{
         .target = target,
@@ -14,7 +14,7 @@ pub fn build(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             "src/Modules/Core/Core.cpp",
             "src/Modules/Core/ECS/Phases.cpp",
         },
-        .flags = &.{"-std=c++17"},
+        .flags = &.{"-std=c++17", "-fvisibility=hidden", "-fvisibility-inlines-hidden"},
     });
 
     mod.addIncludePath(b.path("src/Public"));
@@ -27,6 +27,7 @@ pub fn build(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
     mod.addCMacro("FMT_HEADER_ONLY", "1");
 
     mod.linkSystemLibrary("c++", .{});
+    mod.linkLibrary(assets);
 
     if (target.result.os.tag == .windows)
     {
