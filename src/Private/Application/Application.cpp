@@ -108,6 +108,7 @@ int Application::RunAsClient(fc::Environment::Options& options, std::vector<Modu
     fc::Network::ClientThread clientThread;
     clientThread.Start();
 
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Flecs City");
     SetTargetFPS(60);
 
@@ -136,6 +137,7 @@ int Application::RunAsClient(fc::Environment::Options& options, std::vector<Modu
 
 int Application::RunAsMonolith(fc::Environment::Options& options, std::vector<Module>& modules)
 {
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Flecs City");
     SetTargetFPS(60);
 
