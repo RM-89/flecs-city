@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <vector>
 
 #include <enet/enet.h>
@@ -85,7 +84,7 @@ struct ReplicationRequest
 
         for (uint16_t i = 0; i < componentCount; ++i)
         {
-            ReplicationRequest::ComponentData comp;
+            ComponentData comp;
 
             Read(&comp.mTypeHash, sizeof(comp.mTypeHash));
 
@@ -112,7 +111,7 @@ inline ReplicationRequest GenerateReplicationRequest(flecs::entity e, const Repl
     for (flecs::id_t componentId : componentIds)
     {
         auto desc = registry->GetDescriptor(componentId);
-        const void* componentData = e.get(componentId);
+        const void* componentData = e.try_get(componentId);
         if (componentData)
         {
             Network::ReplicationRequest::ComponentData compData;
