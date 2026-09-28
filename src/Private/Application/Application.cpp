@@ -160,7 +160,7 @@ int Application::RunAsMonolith(fc::Environment::Options& options, std::vector<Mo
 
 void Application::UpdateReplication(fc::Network::ServerThread& serverThread) const
 {
-    mEcs.each<ReplicatedComponent>([&](flecs::entity e, ReplicatedComponent& rep)
+    mEcs.each<ReplicatedComponent>([&](const flecs::entity e, ReplicatedComponent& rep)
     {
         if (!rep.mIsDirty) return;
 

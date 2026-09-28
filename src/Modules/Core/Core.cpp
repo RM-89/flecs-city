@@ -1,12 +1,14 @@
 #include "Core.h"
 
-#include "Assets/Assets.h"
-#include "Assets/ModelAsset.h"
+#include <strings.h>
 
 #include <flecs.h>
 #include <raylib.h>
 #include <chrono>
 #include <spdlog/spdlog.h>
+
+#include "Assets/Assets.h"
+#include "Assets/ModelAsset.h"
 
 #include "ECS/ComponentRegistry.h"
 #include "ECS/ReplicatedComponent.h"
@@ -54,13 +56,19 @@ static void InitServerECS(flecs::world& ecs)
         .set<TextComponent>("");
 
     static auto serverStartTime = std::chrono::steady_clock::now();
-    ecs.system<ReplicatedComponent, TextComponent>("UpdateText")
-        .each([](flecs::entity e, ReplicatedComponent&, TextComponent& textComponent)
+    ecs.system<TextComponent>("UpdateUptimeText")
+        .with<ReplicatedComponent>()
+        .each([](const flecs::entity e, TextComponent& textComponent)
         {
             auto now = std::chrono::steady_clock::now();
-            int seconds = (int)std::chrono::duration_cast<std::chrono::seconds>(now - serverStartTime).count();
-            sprintf(textComponent.mText, "Time elapsed since server start: %ds", seconds);
-            e.modified<TextComponent>();
+            int seconds = static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(now - serverStartTime).count());
+            const std::string text = fmt::format("Time elapsed since server start: {:d}s", seconds);
+            // Only change the component trigger replication if the string has changed
+            if (strcmp(text.c_str(), textComponent.mText) != 0)
+            {
+                std::snprintf(textComponent.mText, sizeof(textComponent.mText), "%s", text.c_str());
+                e.modified<TextComponent>();
+            }
         });
 
     ecs.entity()
