@@ -19,10 +19,12 @@ struct ModelAsset : Assets::Asset
 
     std::string mModelPath;
 
-    static Asset* FromJson(const nlohmann::json& json, const std::string& directoryPath)
+    inline static const std::string Type = "model";
+
+    static Asset* Deserialize(const nlohmann::json& json, const std::string& directoryPath)
     {
         ModelAsset asset;
-        Assets::FromJson(json, &asset);
+        Assets::Deserialize(json, &asset);
 
         asset.mScale = json.value("scale", 1.0f);
 
@@ -34,11 +36,6 @@ struct ModelAsset : Assets::Asset
 
         return new ModelAsset{std::move(asset)};
     }
-};
-
-constexpr Assets::AssetType ModelAssetType{
-    .mName = "model",
-    .FromJson = &ModelAsset::FromJson
 };
 
 } // namespace fc::Core

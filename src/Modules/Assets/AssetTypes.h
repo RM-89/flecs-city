@@ -31,31 +31,24 @@ struct Asset
     /// @brief The path to the manifest, relative to the asset root.
     std::string mRelativePath = {};
 
-    /// @brief The absolute path to the manifest.
-    std::string mAbsolutePath = {};
-
     virtual ~Asset() = default;
 };
 
-struct AssetType
-{
-    char mName[64] = {};
-    Asset* (*FromJson)(const nlohmann::json& json, const std::string& directoryPath);
-};
+using DeserializeFunc = Asset* (*)(const nlohmann::json& json, const std::string& directoryPath);
 
-inline void FromJson(const nlohmann::json& json, Asset* asset)
+inline void Deserialize(const nlohmann::json& json, Asset* asset)
 {
     json.at("id").get_to(asset->mIdString);
 }
 
-/// @brief Generates the runtime ID for an asset from its type and string ID.
-inline AssetId MakeAssetId(const char* idString, const AssetType& type)
+/// @brief Generates the runtime ID for an asset from its ID and type strings.
+inline AssetId MakeAssetId(const char* idString, const std::string& typeString)
 {
     if (idString == nullptr)
         return 0;
 
     Utils::String::HashAccumulator hash;
-    hash.Add(type.mName);
+    hash.Add(typeString);
     hash.Add(":");
     hash.Add(idString, std::strlen(idString));
     return hash.Value();

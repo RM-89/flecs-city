@@ -28,7 +28,7 @@ flecs::system gEndDrawSystem;
 
 static void RegisterAssetTypes()
 {
-    Assets::RegisterType(ModelAssetType);
+    Assets::RegisterType(ModelAsset::Type, &ModelAsset::Deserialize);
 }
 
 static void RegisterComponents(ECS::ComponentRegistry* registry)
@@ -60,7 +60,7 @@ static void InitServerECS(flecs::world& ecs)
         .with<ReplicatedComponent>()
         .each([](const flecs::entity e, TextComponent& textComponent)
         {
-            auto now = std::chrono::steady_clock::now();
+            const auto now = std::chrono::steady_clock::now();
             int seconds = static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(now - serverStartTime).count());
             const std::string text = fmt::format("Time elapsed since server start: {:d}s", seconds);
             // Only change the component trigger replication if the string has changed
@@ -74,17 +74,17 @@ static void InitServerECS(flecs::world& ecs)
     ecs.entity()
         .set<ReplicatedComponent>({})
         .set<PositionComponent>({1.0, 0, 1.0})
-        .set<ModelComponent>({Assets::MakeAssetId("building_A", ModelAssetType)});
+        .set<ModelComponent>({Assets::MakeAssetId("building_A", ModelAsset::Type)});
 
     ecs.entity()
         .set<ReplicatedComponent>({})
         .set<PositionComponent>({3.0, 0, 1.0})
-        .set<ModelComponent>({Assets::MakeAssetId("building_B", ModelAssetType)});
+        .set<ModelComponent>({Assets::MakeAssetId("building_B", ModelAsset::Type)});
 
     ecs.entity()
         .set<ReplicatedComponent>({})
         .set<PositionComponent>({5.0, 0, 1.0})
-        .set<ModelComponent>({Assets::MakeAssetId("building_C", ModelAssetType)});
+        .set<ModelComponent>({Assets::MakeAssetId("building_C", ModelAsset::Type)});
 }
 
 static void InitClientECS(flecs::world& ecs)
@@ -117,7 +117,7 @@ static void InitClientECS(flecs::world& ecs)
 
     ecs.system<const CameraComponent>("BeginDraw3D")
         .kind(fc::Draw3D)
-        .each([&camera3D](const CameraComponent& camera) {
+        .each([](const CameraComponent& camera) {
             BeginMode3D(camera.mCamera);
             DrawGrid(20, 2.0f);
         });

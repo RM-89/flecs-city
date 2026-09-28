@@ -23,6 +23,12 @@ namespace
 /// @brief Suffix identifying a manifest file within the asset tree.
 constexpr const char* MANIFEST_SUFFIX = ".json";
 
+/// @brief Represents a registered asset type.
+struct AssetType
+{
+    DeserializeFunc mDeserialize;
+};
+
 std::unordered_map<std::string, AssetType> gTypes = {};
 
 struct Registry
@@ -103,10 +109,9 @@ Asset* LoadAsset(const fs::path& manifestPath, const fs::path& root)
     const AssetType& type = it->second;
     try
     {
-        Asset* asset = type.FromJson(manifest, manifestDirectoryPath);
-        asset->mId = MakeAssetId(asset->mIdString.c_str(), type);
+        Asset* asset = type.mDeserialize(manifest, manifestDirectoryPath);
+        asset->mId = MakeAssetId(asset->mIdString.c_str(), typeName);
         asset->mRelativePath = manifestPathRelative;
-        asset->mAbsolutePath = manifestPath.string();
         return asset;
     }
     catch (const std::exception& e)
@@ -171,15 +176,15 @@ bool CollectAssets(const fs::path& root, std::vector<Asset*>& outAssets)
 
 }
 
-void RegisterType(AssetType type)
+void RegisterType(const std::string& name, DeserializeFunc deserializeFunc)
 {
-    if (gTypes.find(type.mName) != gTypes.end())
+    if (gTypes.find(name) != gTypes.end())
     {
-        spdlog::error("Attempting to register duplicate asset type '{}'.", type.mName);
+        spdlog::error("Attempting to register duplicate asset type '{}'.", name);
         return;
     }
 
-    gTypes.insert({type.mName, type});
+    gTypes.insert({name, {deserializeFunc}});
 }
 
 bool Initialise(const char* assetRoot)

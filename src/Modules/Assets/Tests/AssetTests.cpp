@@ -8,8 +8,6 @@
 #include "Utils/Json.h"
 
 using fc::Assets::Asset;
-using fc::Assets::Asset;
-using fc::Assets::AssetType;
 using fc::Assets::MakeAssetId;
 using fc::Assets::MAX_ASSET_ID_LENGTH;
 using fc::Assets::MAX_ASSET_PATH_LENGTH;
@@ -21,10 +19,12 @@ struct FooAsset : Asset
 {
     std::string mFoo = {};
 
-    static Asset* FromJson(const nlohmann::json& json, const std::string& directoryPath)
+    inline static const std::string Type = "foo";
+
+    static Asset* Deserialize(const nlohmann::json& json, const std::string& directoryPath)
     {
         FooAsset asset;
-        fc::Assets::FromJson(json, &asset);
+        fc::Assets::Deserialize(json, &asset);
 
         asset.mFoo = json.value("foo", std::string{});
 
@@ -36,25 +36,17 @@ struct BarAsset : Asset
 {
     int mBar = 0;
 
-    static Asset* FromJson(const nlohmann::json& json, const std::string& directoryPath)
+    inline static const std::string Type = "bar";
+
+    static Asset* Deserialize(const nlohmann::json& json, const std::string& directoryPath)
     {
         BarAsset asset;
-        fc::Assets::FromJson(json, &asset);
+        fc::Assets::Deserialize(json, &asset);
 
         asset.mBar = json.value("bar", -1);
 
         return new BarAsset{std::move(asset)};
     }
-};
-
-constexpr AssetType FooType{
-    .mName = "foo",
-    .FromJson = &FooAsset::FromJson
-};
-
-constexpr AssetType BarType{
-    .mName = "bar",
-    .FromJson = &BarAsset::FromJson
 };
 
 namespace fs = std::filesystem;
@@ -79,8 +71,8 @@ protected:
         WriteManifest("duplicate_b.json", R"({"id": "duplicate", "type": "foo", "foo": "second"})");
 
         // Types must be registered before Initialise scans the tree.
-        fc::Assets::RegisterType(FooType);
-        fc::Assets::RegisterType(BarType);
+        fc::Assets::RegisterType(FooAsset::Type, &FooAsset::Deserialize);
+        fc::Assets::RegisterType(BarAsset::Type, &BarAsset::Deserialize);
 
         if (!fc::Assets::Initialise(mRoot.string().c_str()))
             throw std::runtime_error("could not initialise the registry from '" + mRoot.string() + "'");
@@ -110,17 +102,17 @@ fs::path AssetRegistryTest::mRoot;
 
 TEST(Assets, MakeAssetId_DistinguishesAssetTypes)
 {
-    EXPECT_NE(MakeAssetId("foo", FooType), MakeAssetId("bar", BarType));
+    EXPECT_NE(MakeAssetId("foo", FooAsset::Type), MakeAssetId("bar", BarAsset::Type));
 }
 
 TEST(Assets, MakeAssetId_RejectsNullId)
 {
-    EXPECT_EQ(MakeAssetId(nullptr, FooType), 0u);
+    EXPECT_EQ(MakeAssetId(nullptr, FooAsset::Type), 0u);
 }
 
 TEST_F(AssetRegistryTest, GetAsset_ReturnsRegisteredFoo)
 {
-    const Asset* asset = fc::Assets::GetAsset(MakeAssetId("foo_asset", FooType));
+    const Asset* asset = fc::Assets::GetAsset(MakeAssetId("foo_asset", FooAsset::Type));
     ASSERT_NE(asset, nullptr);
     EXPECT_EQ(asset->mIdString, "foo_asset");
     EXPECT_EQ(static_cast<const FooAsset*>(asset)->mFoo, "hello");
@@ -128,8 +120,8 @@ TEST_F(AssetRegistryTest, GetAsset_ReturnsRegisteredFoo)
 
 TEST_F(AssetRegistryTest, GetAsset_SeparatesTypesWithTheSameId)
 {
-    const Asset* foo = fc::Assets::GetAsset(MakeAssetId("shared_id", FooType));
-    const Asset* bar = fc::Assets::GetAsset(MakeAssetId("shared_id", BarType));
+    const Asset* foo = fc::Assets::GetAsset(MakeAssetId("shared_id", FooAsset::Type));
+    const Asset* bar = fc::Assets::GetAsset(MakeAssetId("shared_id", BarAsset::Type));
 
     ASSERT_NE(foo, nullptr);
     ASSERT_NE(bar, nullptr);
@@ -140,7 +132,7 @@ TEST_F(AssetRegistryTest, GetAsset_SeparatesTypesWithTheSameId)
 
 TEST_F(AssetRegistryTest, GetAsset_RejectsDuplicates)
 {
-    const Asset* asset = fc::Assets::GetAsset(MakeAssetId("duplicate", FooType));
+    const Asset* asset = fc::Assets::GetAsset(MakeAssetId("duplicate", FooAsset::Type));
 
     ASSERT_NE(asset, nullptr);
 
@@ -150,7 +142,7 @@ TEST_F(AssetRegistryTest, GetAsset_RejectsDuplicates)
 
 TEST_F(AssetRegistryTest, GetAsset_ReturnsNullForUnknownId)
 {
-    EXPECT_EQ(fc::Assets::GetAsset(MakeAssetId("nope", FooType)), nullptr);
+    EXPECT_EQ(fc::Assets::GetAsset(MakeAssetId("nope", FooAsset::Type)), nullptr);
 }
 
 }
