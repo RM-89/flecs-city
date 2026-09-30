@@ -61,7 +61,7 @@ std::optional<fs::path> ResolveRoot(const char* assetRoot)
         return std::nullopt;
     }
 
-    const fs::path root = fs::path(assetRoot);
+    const auto root = fs::path(assetRoot);
 
     std::error_code ec;
     if (!fs::is_directory(root, ec))
@@ -176,7 +176,7 @@ bool CollectAssets(const fs::path& root, std::vector<Asset*>& outAssets)
 
 }
 
-void RegisterType(const std::string& name, DeserialiseFunc deserialiseFunc)
+void RegisterType(const std::string& name, const DeserialiseFunc deserialiseFunc)
 {
     if (gTypes.find(name) != gTypes.end())
     {
@@ -210,7 +210,7 @@ bool Initialise(const char* assetRoot)
     return true;
 }
 
-Asset* GetAsset(AssetId id)
+Asset* GetAsset(const AssetId id)
 {
     const auto it = gRegistry.mIndexById.find(id);
     if (it == gRegistry.mIndexById.end())

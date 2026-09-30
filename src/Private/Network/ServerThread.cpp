@@ -10,7 +10,7 @@
 namespace fc::Network
 {
 
-ServerThread::ServerThread(uint32_t listenPort)
+ServerThread::ServerThread(const uint32_t listenPort)
     : NetworkThread()
 {
     mAddress.host = ENET_HOST_ANY;
@@ -119,7 +119,7 @@ void ServerThread::ProcessReplicationQueue()
     {
         ReplicationRequest& packet = mReplicationQueue.front();
 
-        std::vector<uint8_t> buffer = packet.Serialize();
+        std::vector<uint8_t> buffer = packet.Serialise();
 
         if (packet.mRecipient != nullptr)
         {

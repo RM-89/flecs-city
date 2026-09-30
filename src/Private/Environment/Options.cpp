@@ -4,24 +4,24 @@
 namespace fc::Environment
 {
 
-bool Options::Init(int argc, char** argv)
+bool Options::Init(const int argc, char** argv)
 {
     try
     {
         mParser.ParseCLI(argc, argv);
     }
-    catch (args::Help)
+    catch (args::Help&)
     {
         std::cout << mParser;
         return false;
     }
-    catch (args::ParseError e)
+    catch (args::ParseError& e)
     {
         std::cerr << e.what() << std::endl;
         std::cerr << mParser;
         return false;
     }
-    catch (args::ValidationError e)
+    catch (args::ValidationError& e)
     {
         std::cerr << e.what() << std::endl;
         std::cerr << mParser;

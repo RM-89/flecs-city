@@ -9,10 +9,11 @@ namespace fc
 struct TextComponent
 {
     static constexpr size_t MAX_LENGTH = 256;
-    char mText[MAX_LENGTH];
+    char mText[MAX_LENGTH]{};
     
     TextComponent() = default;
-    TextComponent(const char* text)
+
+    TextComponent(char* text)
     {
         if (text)
         {
@@ -25,7 +26,7 @@ struct TextComponent
         }
     }
 
-    TextComponent(const std::string& text)
+    TextComponent(std::string& text)
     {
         strncpy(mText, text.c_str(), MAX_LENGTH - 1);
         mText[MAX_LENGTH - 1] = '\0';

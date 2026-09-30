@@ -43,23 +43,20 @@ bool NetworkThread::PollEvent(Event& outEvent)
     return true;
 }
 
-void NetworkThread::QueueMessage(const std::string& data, ENetPeer* peer, Channel channel, uint32_t flags)
+void NetworkThread::QueueMessage(const std::string& data, ENetPeer* peer, const Channel channel, const uint32_t flags)
 {
     const std::vector<uint8_t> vec(data.begin(), data.end());
     QueueMessage(vec, peer, channel, flags);
 }
 
-void NetworkThread::QueueMessage(const std::vector<uint8_t>& data, ENetPeer* peer, Channel channel, uint32_t flags)
+void NetworkThread::QueueMessage(const std::vector<uint8_t>& data, ENetPeer* peer, const Channel channel, const uint32_t flags)
 {
-    OutMessage message
-    {
+    mOutgoingMessages.push({
         .mData = data,
         .mPeer = peer,
         .mChannel = channel,
         .mFlags = flags
-    };
-
-    mOutgoingMessages.push(message);
+    });
 }
 
 void NetworkThread::Main()
@@ -78,9 +75,9 @@ void NetworkThread::Main()
 
     State state = mState.load();
     ENetEvent event;
-    while (state != State::PendingExit)
+    while (state != PendingExit)
     {
-        if (state == State::Idle)
+        if (state == Idle)
         {
             state = mState.load();
             continue;
@@ -116,18 +113,18 @@ void NetworkThread::Main()
 void NetworkThread::ProcessOutgoingMessages()
 {
     // TODO: add tuneable throttling
-    while (mOutgoingMessages.size() > 0)
+    while (!mOutgoingMessages.empty())
     {
         OutMessage& message = mOutgoingMessages.front();
 
-        uint8_t* data = new uint8_t[message.mData.size()];
+        auto* data = new uint8_t[message.mData.size()];
         std::copy(message.mData.begin(), message.mData.end(), data);
 
         ENetPacket* packet = enet_packet_create(data, message.mData.size(), ENET_PACKET_FLAG_RELIABLE | ENET_PACKET_FLAG_NO_ALLOCATE);
-        packet->freeCallback = [](ENetPacket* packet)
+        packet->freeCallback = [](ENetPacket* p)
         {
-            delete[] static_cast<uint8_t*>(packet->data);
-            packet->data = nullptr;
+            delete[] p->data;
+            p->data = nullptr;
         };
 
         enet_peer_send(message.mPeer, message.mChannel, packet);
@@ -158,7 +155,7 @@ void NetworkThread::HandleEvent(const ENetEvent& event)
         {
             switch (event.channelID)
             {
-                case Channel::General:
+                case General:
                 {
                     std::vector<uint8_t> data(event.packet->data, event.packet->data + event.packet->dataLength);
 

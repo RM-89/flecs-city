@@ -4,7 +4,7 @@
 #include "Environment/Options.h"
 #include "Modules/Core/Core.h"
 
-int main(int argc, char** argv)
+int main(const int argc, char** argv)
 {
     fc::Environment::Options options;
     if (!options.Init(argc, argv))

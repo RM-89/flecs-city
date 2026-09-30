@@ -11,7 +11,6 @@ namespace fc
 struct ModelComponent
 {
     Assets::AssetId mModelAssetId;
-
     float mScale = 1.f;
     Color mTint = WHITE;
 };

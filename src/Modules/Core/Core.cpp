@@ -23,8 +23,8 @@
 namespace fc::Core
 {
 
-flecs::system gPreDrawSystem;
-flecs::system gEndDrawSystem;
+static flecs::system gPreDrawSystem;
+static flecs::system gEndDrawSystem;
 
 static void RegisterAssetTypes()
 {
@@ -43,18 +43,19 @@ static void RegisterComponents(ECS::ComponentRegistry* registry)
     registry->RegisterReplicatedComponent<ModelComponent>("ModelComponent");
 }
 
-static void InitCommonECS(flecs::world& ecs)
+static void InitCommonECS(const flecs::world& ecs)
 {
-    fc::InitPhases(ecs);
+    InitPhases(ecs);
 }
 
-static void InitServerECS(flecs::world& ecs)
+static void InitServerECS(const flecs::world& ecs)
 {
     ecs.entity()
         .set<ReplicatedComponent>({})
         .set<PositionComponent>({20, 20, 0})
         .set<TextComponent>("");
 
+    static bool hasCreatedBuildings{false};
     static auto serverStartTime = std::chrono::steady_clock::now();
     ecs.system<TextComponent>("UpdateUptimeText")
         .with<ReplicatedComponent>()
@@ -69,25 +70,31 @@ static void InitServerECS(flecs::world& ecs)
                 std::snprintf(textComponent.mText, sizeof(textComponent.mText), "%s", text.c_str());
                 e.modified<TextComponent>();
             }
+
+            if (hasCreatedBuildings == false && seconds > 5)
+            {
+                e.world().entity()
+                    .set<ReplicatedComponent>({})
+                    .set<PositionComponent>({1.0, 0, 1.0})
+                    .set<ModelComponent>({Assets::MakeAssetId("building_A", ModelAsset::Type)});
+
+                e.world().entity()
+                    .set<ReplicatedComponent>({})
+                    .set<PositionComponent>({3.0, 0, 1.0})
+                    .set<ModelComponent>({Assets::MakeAssetId("building_B", ModelAsset::Type)});
+
+                e.world().entity()
+                    .set<ReplicatedComponent>({})
+                    .set<PositionComponent>({5.0, 0, 1.0})
+                    .set<ModelComponent>({Assets::MakeAssetId("building_C", ModelAsset::Type)});
+
+                spdlog::info("Created building entities");
+                hasCreatedBuildings = true;
+            }
         });
-
-    ecs.entity()
-        .set<ReplicatedComponent>({})
-        .set<PositionComponent>({1.0, 0, 1.0})
-        .set<ModelComponent>({Assets::MakeAssetId("building_A", ModelAsset::Type)});
-
-    ecs.entity()
-        .set<ReplicatedComponent>({})
-        .set<PositionComponent>({3.0, 0, 1.0})
-        .set<ModelComponent>({Assets::MakeAssetId("building_B", ModelAsset::Type)});
-
-    ecs.entity()
-        .set<ReplicatedComponent>({})
-        .set<PositionComponent>({5.0, 0, 1.0})
-        .set<ModelComponent>({Assets::MakeAssetId("building_C", ModelAsset::Type)});
 }
 
-static void InitClientECS(flecs::world& ecs)
+static void InitClientECS(const flecs::world& ecs)
 {
     Camera3D camera3D = {0};
     camera3D.position = {0.0f, 10.0f, 10.0f};
@@ -99,7 +106,7 @@ static void InitClientECS(flecs::world& ecs)
     ecs.set<CameraComponent>({camera3D});
 
     gPreDrawSystem = ecs.system<CameraComponent>()
-                         .kind(fc::PreDraw)
+                         .kind(PreDraw)
                          .each([](CameraComponent& camera) {
                              if (IsCursorHidden())
                              {
@@ -116,7 +123,7 @@ static void InitClientECS(flecs::world& ecs)
                          });
 
     ecs.system<const CameraComponent>("BeginDraw3D")
-        .kind(fc::Draw3D)
+        .kind(Draw3D)
         .each([](const CameraComponent& camera) {
             BeginMode3D(camera.mCamera);
             DrawGrid(20, 2.0f);
@@ -125,7 +132,7 @@ static void InitClientECS(flecs::world& ecs)
     ecs.system<const ModelComponent>("LoadModels")
         .with<PositionComponent>()
         .without<ModelInstanceComponent>()
-        .kind(fc::Draw3D)
+        .kind(Draw3D)
         .each([](const flecs::entity e, const ModelComponent& model) {
             const ModelAsset* asset = static_cast<ModelAsset*>(Assets::GetAsset(model.mModelAssetId));
             e.set<ModelInstanceComponent>({
@@ -136,26 +143,26 @@ static void InitClientECS(flecs::world& ecs)
         });
 
     ecs.system<const PositionComponent, const ModelInstanceComponent>("DrawModels")
-        .kind(fc::Draw3D)
+        .kind(Draw3D)
         .each([](const PositionComponent& position, const ModelInstanceComponent& model) {
             DrawModel(model.mModel, position.mPosition, model.mScale, model.mTint);
         });
 
-    ecs.system("EndDraw3D").kind(fc::Draw3D).each([]() { EndMode3D(); });
+    ecs.system("EndDraw3D").kind(Draw3D).each([]() { EndMode3D(); });
 
     ecs.system<const PositionComponent, const TextComponent>("DrawText")
-        .kind(fc::Draw2D)
+        .kind(Draw2D)
         .each([](const PositionComponent& position,
                  const TextComponent& text) { DrawText(text.mText, static_cast<int>(position.mPosition.x), static_cast<int>(position.mPosition.y), 30.0, BLACK); });
 
-    gEndDrawSystem = ecs.system().kind(fc::PostDraw).each([]() { EndDrawing(); });
+    gEndDrawSystem = ecs.system().kind(PostDraw).each([]() { EndDrawing(); });
 }
 
-static void Cleanup(flecs::world& ecs)
+static void Cleanup(const flecs::world& ecs)
 {
 }
 
-fc::Module MODULE{
+Module MODULE{
     .RegisterAssetTypes = &RegisterAssetTypes,
     .RegisterComponents = &RegisterComponents,
     .InitCommonECS = &InitCommonECS,

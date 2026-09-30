@@ -27,9 +27,9 @@ Application::~Application()
     delete mComponentRegistry;
 }
 
-int Application::Run(fc::Environment::Options& options, std::vector<Module>& modules)
+int Application::Run(Environment::Options& options, std::vector<Module>& modules)
 {
-    fc::Logging::Initialise();
+    Logging::Initialise();
 
     spdlog::info("Registering asset types...");
     for (const auto module : modules)
@@ -80,14 +80,14 @@ int Application::Run(fc::Environment::Options& options, std::vector<Module>& mod
     return status;
 }
 
-int Application::RunAsServer(fc::Environment::Options& options, std::vector<Module>& modules)
+int Application::RunAsServer(Environment::Options& options, const std::vector<Module>& modules) const
 {
     // TODO: Implement basic CLI commands to do basic server ops.
     fc::Network::ServerThread serverThread(options.GetListenPort());
     serverThread.Start();
 
     spdlog::info("Initialising ECS...");
-    for (auto module : modules)
+    for (const auto module : modules)
     {
         module.InitCommonECS(mEcs);
         module.InitServerECS(mEcs);
@@ -103,9 +103,9 @@ int Application::RunAsServer(fc::Environment::Options& options, std::vector<Modu
     return 0;
 }
 
-int Application::RunAsClient(fc::Environment::Options& options, std::vector<Module>& modules)
+int Application::RunAsClient(Environment::Options& options, const std::vector<Module>& modules) const
 {
-    fc::Network::ClientThread clientThread;
+    Network::ClientThread clientThread;
     clientThread.Start();
 
     InitWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Flecs City");
@@ -116,7 +116,7 @@ int Application::RunAsClient(fc::Environment::Options& options, std::vector<Modu
         return -1;
 
     spdlog::info("Initialising ECS...");
-    for (auto module : modules)
+    for (const auto module : modules)
     {
         module.InitCommonECS(mEcs);
         module.InitClientECS(mEcs);
@@ -134,7 +134,7 @@ int Application::RunAsClient(fc::Environment::Options& options, std::vector<Modu
     return 0;
 }
 
-int Application::RunAsMonolith(fc::Environment::Options& options, std::vector<Module>& modules)
+int Application::RunAsMonolith(Environment::Options& options, const std::vector<Module>& modules) const
 {
     InitWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Flecs City");
     SetTargetFPS(60);
@@ -164,12 +164,12 @@ void Application::UpdateReplication(fc::Network::ServerThread& serverThread) con
     {
         if (!rep.mIsDirty) return;
 
-        std::vector<flecs::id_t> dirtyComponents(
+        const std::vector<flecs::id_t> dirtyComponents(
             rep.mDirtyComponents,
             rep.mDirtyComponents + rep.mDirtyComponentCount
         );
 
-        auto request = Network::GenerateReplicationRequest(e, rep, false, dirtyComponents, mComponentRegistry);
+        const auto request = Network::GenerateReplicationRequest(e, rep, false, dirtyComponents, mComponentRegistry);
         serverThread.QueueReplicationRequest(request);
         rep.ClearDirty();
     });
@@ -177,13 +177,13 @@ void Application::UpdateReplication(fc::Network::ServerThread& serverThread) con
     std::vector<ENetPeer*> newPeers = serverThread.PopNewPeers();
     if (!newPeers.empty())
     {
-        mEcs.each<ReplicatedComponent>([&](flecs::entity e, ReplicatedComponent& rep)
+        mEcs.each<ReplicatedComponent>([&](const flecs::entity e, const ReplicatedComponent& rep)
         {
             const std::unordered_set<flecs::id_t>& ids = mComponentRegistry->GetReplicatedComponents();
 
-            std::vector<flecs::id_t> components(ids.begin(), ids.end());
+            const std::vector<flecs::id_t> components(ids.begin(), ids.end());
 
-            auto request = Network::GenerateReplicationRequest(e, rep, true, components, mComponentRegistry);
+            const auto request = Network::GenerateReplicationRequest(e, rep, true, components, mComponentRegistry);
 
             for (ENetPeer* peer : newPeers)
             {

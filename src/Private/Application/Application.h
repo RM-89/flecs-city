@@ -35,9 +35,9 @@ private:
     Application();
     ~Application();
 
-    int RunAsServer(fc::Environment::Options& options, std::vector<Module>& modules);
-    int RunAsClient(fc::Environment::Options& options, std::vector<Module>& modules);
-    int RunAsMonolith(fc::Environment::Options& options, std::vector<Module>& modules);
+    int RunAsServer(fc::Environment::Options& options, const std::vector<Module>& modules) const;
+    int RunAsClient(fc::Environment::Options& options, const std::vector<Module>& modules) const;
+    int RunAsMonolith(fc::Environment::Options& options, const std::vector<Module>& modules) const;
 
     void UpdateReplication(fc::Network::ServerThread& serverThread) const;
 };

@@ -15,7 +15,7 @@ namespace fc::Network
 class ServerThread : public NetworkThread
 {
 public:
-    ServerThread(uint32_t listenPort);
+    explicit ServerThread(uint32_t listenPort);
 
     std::vector<ENetPeer*> PopNewPeers();
     void SetClientReady(ENetPeer* peer);

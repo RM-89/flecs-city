@@ -8,7 +8,7 @@ flecs::entity Draw3D;
 flecs::entity Draw2D;
 flecs::entity PostDraw;
 
-void InitPhases(flecs::world& ecs)
+void InitPhases(const flecs::world& ecs)
 {
     PreDraw = ecs.entity("fc::PreDraw").add(flecs::Phase).depends_on(flecs::OnUpdate);
     Draw3D = ecs.entity("fc::Draw3D").add(flecs::Phase).depends_on(PreDraw);

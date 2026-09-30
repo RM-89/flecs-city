@@ -16,14 +16,15 @@ namespace fc::ECS
 
 struct ComponentDescriptor
 {
-    flecs::id_t mComponentId;
-    size_t mSize;
+    flecs::id_t mComponentId{};
+    size_t mSize{};
     static constexpr size_t MAX_NAME_LENGTH = 128;
-    char mName[MAX_NAME_LENGTH];
-    uint32_t mTypeHash;
+    char mName[MAX_NAME_LENGTH]{};
+    uint32_t mTypeHash{};
 
     ComponentDescriptor() = default;
-    ComponentDescriptor(const std::string& name)
+
+    explicit ComponentDescriptor(const std::string& name)
     {
         strncpy(mName, name.c_str(), MAX_NAME_LENGTH - 1);
         mName[MAX_NAME_LENGTH - 1] = '\0';
@@ -32,8 +33,8 @@ struct ComponentDescriptor
 
 class ComponentRegistry
 {
-   public:
-    ComponentRegistry(flecs::world& ecs) : mEcs(ecs) {}
+public:
+    explicit ComponentRegistry(flecs::world& ecs) : mEcs(ecs) {}
 
     template <typename T>
     flecs::component<T> RegisterComponent()
@@ -70,19 +71,22 @@ class ComponentRegistry
         return mIdToDescriptor.at(componentId);
     }
 
-    flecs::id_t GetComponentId(uint32_t typeHash) const
+    flecs::id_t GetComponentId(const uint32_t typeHash) const
     {
         auto it = mHashToId.find(typeHash);
         if (it != mHashToId.end())
         {
             return it->second;
         }
-        return 0;  // Return 0 or handle error if not found
+        return 0;
     }
 
-    flecs::world& GetWorld() { return mEcs; }
+    flecs::world& GetWorld() const
+    {
+        return mEcs;
+    }
 
-   private:
+private:
     flecs::world& mEcs;
 
     std::unordered_map<flecs::id_t, ComponentDescriptor> mIdToDescriptor;
@@ -100,9 +104,10 @@ class ComponentRegistry
                 rep.mIsNewEntity = true;
             });
 
-        mEcs.observer<ReplicatedComponent>()
+        mEcs.observer()
+            .with<ReplicatedComponent>()
             .event(flecs::OnRemove)
-            .each([this](flecs::entity e, ReplicatedComponent& rep) {
+            .each([this](const flecs::entity e) {
                 mDestructionQueue.push(e.id());
             });
     }
@@ -110,9 +115,10 @@ class ComponentRegistry
     template <typename T>
     void InitComponentObserver()
     {
-        mEcs.observer<T, ReplicatedComponent>()
+        mEcs.observer<ReplicatedComponent>()
+            .with<T>()
             .event(flecs::OnAdd)
-            .each([](flecs::entity e, T& component, ReplicatedComponent& rep) {
+            .each([](const flecs::entity e, ReplicatedComponent& rep) {
                 // Don't mark as dirty if the entity is new - that case is handled by the
                 // entity OnAdd observer (see InitEntityObservers above)
                 if (!rep.mIsNewEntity)
@@ -121,15 +127,17 @@ class ComponentRegistry
                 }
             });
 
-        mEcs.observer<T, ReplicatedComponent>()
+        mEcs.observer<ReplicatedComponent>()
+            .with<T>()
             .event(flecs::OnSet)
-            .each([](flecs::entity e, T& component, ReplicatedComponent& rep) {
+            .each([](const flecs::entity e, ReplicatedComponent& rep) {
                 rep.MarkDirty(e.world().id<T>());
             });
 
-        mEcs.observer<T, ReplicatedComponent>()
+        mEcs.observer<ReplicatedComponent>()
+            .with<T>()
             .event(flecs::OnRemove)
-            .each([](flecs::entity e, T& component, ReplicatedComponent& rep) {
+            .each([](ReplicatedComponent& rep) {
                 // Mark the entity as dirty so the removal can be replicated without
                 // sending the component data
                 rep.mIsDirty = true;
@@ -137,4 +145,4 @@ class ComponentRegistry
     }
 };
 
-}  // namespace fc::ECS
+} // namespace fc::ECS

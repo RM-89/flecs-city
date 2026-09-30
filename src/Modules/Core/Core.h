@@ -12,6 +12,6 @@
 namespace fc::Core
 {
 
-CORE_API extern fc::Module MODULE;
+CORE_API extern Module MODULE;
 
 }; // namespace fc::Core

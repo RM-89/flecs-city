@@ -12,7 +12,7 @@ struct ReplicatedComponent
     float mLastReplicatedTime{0};
     bool mIsNewEntity = true;
 
-    void MarkDirty(flecs::id_t componentId)
+    void MarkDirty(const flecs::id_t componentId)
     {
         mIsDirty = true;
 
@@ -31,7 +31,7 @@ struct ReplicatedComponent
         mIsNewEntity = false;
     }
 
-    bool IsComponentDirty(flecs::id_t componentId) const
+    [[nodiscard]] bool IsComponentDirty(const flecs::id_t componentId) const
     {
         if (mIsNewEntity) return true;
 

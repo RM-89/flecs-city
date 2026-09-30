@@ -9,9 +9,8 @@ namespace fc
 struct ModelInstanceComponent
 {
     Model mModel;
-
-    float mScale = 1.f;
-    Color mTint = WHITE;
+    float mScale;
+    Color mTint;
 };
 
 }; // namespace fc

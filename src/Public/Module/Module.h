@@ -19,19 +19,19 @@ struct Module
 
     /// @brief For initialising common ECS entities (including systems/queries).
     /// @param ecs The flecs world.
-    void (*InitCommonECS)(flecs::world& ecs);
+    void (*InitCommonECS)(const flecs::world& ecs);
 
     /// @brief For initialising server-side ECS entities (including systems/queries).
     /// @param ecs The flecs world.
-    void (*InitServerECS)(flecs::world& ecs);
+    void (*InitServerECS)(const flecs::world& ecs);
 
     /// @brief For initialising client-side ECS entities (including systems/queries).
     /// @param ecs The flecs world.
-    void (*InitClientECS)(flecs::world& ecs);
+    void (*InitClientECS)(const flecs::world& ecs);
 
     /// @brief For carrying out any necessary module cleanup when shutting down.
     /// @param ecs The flecs world.
-    void (*Cleanup)(flecs::world& ecs);
+    void (*Cleanup)(const flecs::world& ecs);
 };
 
 }; // namespace fc

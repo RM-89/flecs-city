@@ -1,9 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include <string>
 
 #include <args.hxx>
+#include <utility>
 
 #include "Environment/Constants.h"
 
@@ -12,26 +12,25 @@ namespace fc::Environment
 
 struct ConnectAddress
 {
-    uint32_t mPort;
-
     std::string mHostString;
+    uint32_t mPort;
 
     ConnectAddress() : mPort(0) {}
 
-    ConnectAddress(const std::string& hostString, uint32_t port)
-        : mHostString(hostString)
+    ConnectAddress(std::string hostString, const uint32_t port)
+        : mHostString(std::move(hostString))
         , mPort(port)
     {
     }
 };
 
-const ConnectAddress DEFAULT_CONNECT_ADDRESS = ConnectAddress("127.0.0.1", DEFAULT_LISTEN_PORT);
+const auto DEFAULT_CONNECT_ADDRESS = ConnectAddress("127.0.0.1", DEFAULT_LISTEN_PORT);
 
 struct ConnectAddressReader
 {
-    void operator()(const std::string& name, const std::string& value, ConnectAddress& destination)
+    void operator()(const std::string& name, const std::string& value, ConnectAddress& destination) const
     {
-        size_t colonPos = value.find_last_of(':');
+        const size_t colonPos = value.find_last_of(':');
 
         if (colonPos == std::string::npos)
         {
@@ -48,7 +47,7 @@ struct ConnectAddressReader
             throw args::ParseError("Invalid address format for '" + name + "': empty host in '" + value + "'");
         }
 
-        std::string host = value.substr(0, colonPos);
+        const std::string host = value.substr(0, colonPos);
 
         if (colonPos == value.length() - 1)
         {
@@ -56,11 +55,11 @@ struct ConnectAddressReader
             return;
         }
 
-        std::string portStr = value.substr(colonPos + 1);
+        const std::string portStr = value.substr(colonPos + 1);
 
         try
         {
-            unsigned long portLong = std::stoul(portStr);
+            const unsigned long portLong = std::stoul(portStr);
 
             if (portLong == 0 || portLong > 65535)
             {

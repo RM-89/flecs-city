@@ -16,46 +16,46 @@ struct ReplicationRequest
 {
     struct ComponentData
     {
-        uint32_t mTypeHash;
+        uint32_t mTypeHash{};
         std::vector<uint8_t> mData;
     };
 
-    // Serialized fields
-    uint64_t mEntityId;
+    // Serialised fields
+    uint64_t mEntityId{};
     bool mIsNewEntity{false};
     bool mIsDestroyed{false};
     std::vector<ComponentData> mComponents;
 
     ENetPeer* mRecipient = nullptr;
 
-    std::vector<uint8_t> Serialize()
+    std::vector<uint8_t> Serialise()
     {
         std::vector<uint8_t> buffer;
         buffer.reserve(256);
 
-        auto Write = [&buffer](const void* data, size_t size) {
-            const uint8_t* bytes = static_cast<const uint8_t*>(data);
+        auto Write = [&buffer](const void* data, const size_t size) {
+            const auto* bytes = static_cast<const uint8_t*>(data);
             buffer.insert(buffer.end(), bytes, bytes + size);
         };
 
         Write(&mEntityId, sizeof(mEntityId));
 
-        uint8_t isNew = mIsNewEntity ? 1 : 0;
-        uint8_t isDestroyed = mIsDestroyed ? 1 : 0;
+        const uint8_t isNew = mIsNewEntity ? 1 : 0;
+        const uint8_t isDestroyed = mIsDestroyed ? 1 : 0;
         Write(&isNew, 1);
         Write(&isDestroyed, 1);
 
-        uint16_t componentCount = static_cast<uint16_t>(mComponents.size());
+        const auto componentCount = static_cast<uint16_t>(mComponents.size());
         Write(&componentCount, sizeof(componentCount));
 
-        for (const auto& comp : mComponents)
+        for (const auto& [mTypeHash, mData] : mComponents)
         {
-            Write(&comp.mTypeHash, sizeof(comp.mTypeHash));
+            Write(&mTypeHash, sizeof(mTypeHash));
 
-            uint16_t dataSize = static_cast<uint16_t>(comp.mData.size());
+            auto dataSize = static_cast<uint16_t>(mData.size());
             Write(&dataSize, sizeof(dataSize));
 
-            buffer.insert(buffer.end(), comp.mData.begin(), comp.mData.end());
+            buffer.insert(buffer.end(), mData.begin(), mData.end());
         }
 
         return buffer;
@@ -66,7 +66,7 @@ struct ReplicationRequest
         ReplicationRequest request;
         size_t offset = 0;
 
-        auto Read = [&buffer, &offset](void* dest, size_t size) {
+        auto Read = [&buffer, &offset](void* dest, const size_t size) {
             memcpy(dest, buffer.data() + offset, size);
             offset += size;
         };
@@ -102,21 +102,20 @@ struct ReplicationRequest
     }
 };
 
-inline ReplicationRequest GenerateReplicationRequest(flecs::entity e, const ReplicatedComponent& rep, const bool forceNew, const std::vector<flecs::id_t>& componentIds, const fc::ECS::ComponentRegistry* registry)
+inline ReplicationRequest GenerateReplicationRequest(const flecs::entity e, const ReplicatedComponent& rep, const bool forceNew, const std::vector<flecs::id_t>& componentIds, const ECS::ComponentRegistry* registry)
 {
-    Network::ReplicationRequest request;
+    ReplicationRequest request;
     request.mEntityId = e.id();
     request.mIsNewEntity = forceNew ? true : rep.mIsNewEntity;
 
-    for (flecs::id_t componentId : componentIds)
+    for (const flecs::id_t componentId : componentIds)
     {
-        auto desc = registry->GetDescriptor(componentId);
-        const void* componentData = e.try_get(componentId);
-        if (componentData)
+        const auto desc = registry->GetDescriptor(componentId);
+        if (const void* componentData = e.try_get(componentId))
         {
-            Network::ReplicationRequest::ComponentData compData;
+            ReplicationRequest::ComponentData compData;
             compData.mTypeHash = desc.mTypeHash;
-            const uint8_t* dataPtr = static_cast<const uint8_t*>(componentData);
+            const auto* dataPtr = static_cast<const uint8_t*>(componentData);
             compData.mData.assign(dataPtr, dataPtr + desc.mSize);
             request.mComponents.push_back(std::move(compData));
         }
