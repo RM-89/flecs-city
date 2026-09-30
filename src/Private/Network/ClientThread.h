@@ -28,7 +28,7 @@ public:
     bool Connect(const char* address, uint32_t port);
     void Disconnect() override;
 
-    void ProcessReplicationQueue(fc::ECS::ComponentRegistry* registry);
+    void ProcessReplicationQueue(const fc::ECS::ComponentRegistry* registry);
 
 protected:
     bool Init() override;

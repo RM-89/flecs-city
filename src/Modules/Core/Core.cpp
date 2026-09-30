@@ -71,7 +71,7 @@ static void InitServerECS(const flecs::world& ecs)
                 e.modified<TextComponent>();
             }
 
-            if (hasCreatedBuildings == false && seconds > 5)
+            if (hasCreatedBuildings == false && seconds > 9)
             {
                 e.world().entity()
                     .set<ReplicatedComponent>({})

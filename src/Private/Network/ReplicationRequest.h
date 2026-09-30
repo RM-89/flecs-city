@@ -102,22 +102,45 @@ struct ReplicationRequest
     }
 };
 
-inline ReplicationRequest GenerateReplicationRequest(const flecs::entity e, const ReplicatedComponent& rep, const bool forceNew, const std::vector<flecs::id_t>& componentIds, const ECS::ComponentRegistry* registry)
+/// @brief Generates a replication request for the given entity.
+///
+/// @param entity The entity being replicated.
+/// @param rep The entity's @c ReplicatedComponent.
+/// @param registry The @c ComponentRegistry to retrieve component descriptors from.
+/// @param forceNew Whether to mark the request as a new entity replication even if the replication component is not marked as such. Useful for updating newly connected clients.
+/// @return The request.
+[[nodiscard]] inline ReplicationRequest GenerateReplicationRequest(const flecs::entity entity, const ReplicatedComponent& rep, const ECS::ComponentRegistry& registry, const bool forceNew)
 {
     ReplicationRequest request;
-    request.mEntityId = e.id();
-    request.mIsNewEntity = forceNew ? true : rep.mIsNewEntity;
+    request.mEntityId = entity.id();
+    request.mIsNewEntity = forceNew || rep.mIsNewEntity;
 
-    for (const flecs::id_t componentId : componentIds)
+    auto addComponent = [&](const flecs::id_t componentId)
     {
-        const auto desc = registry->GetDescriptor(componentId);
-        if (const void* componentData = e.try_get(componentId))
+        if (const void* componentData = entity.try_get(componentId))
         {
+            const auto* desc = registry.TryGetDescriptor(componentId);
+            if (!desc) return;
             ReplicationRequest::ComponentData compData;
-            compData.mTypeHash = desc.mTypeHash;
+            compData.mTypeHash = desc->mTypeHash;
             const auto* dataPtr = static_cast<const uint8_t*>(componentData);
-            compData.mData.assign(dataPtr, dataPtr + desc.mSize);
+            compData.mData.assign(dataPtr, dataPtr + desc->mSize);
             request.mComponents.push_back(std::move(compData));
+        }
+    };
+
+    if (request.mIsNewEntity)
+    {
+        for (const flecs::id_t componentId : registry.GetReplicatedComponents())
+        {
+            addComponent(componentId);
+        }
+    }
+    else
+    {
+        for (size_t i = 0; i < rep.mDirtyComponentCount; ++i)
+        {
+            addComponent(rep.mDirtyComponents[i]);
         }
     }
 

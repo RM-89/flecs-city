@@ -66,9 +66,12 @@ public:
         return mComponents;
     }
 
-    const ComponentDescriptor& GetDescriptor(const flecs::id_t componentId) const
+    /// @brief Looks up a component descriptor.
+    /// @return A pointer to the descriptor, or nullptr if the id isn't a registered replicated component.
+    const ComponentDescriptor* TryGetDescriptor(const flecs::id_t componentId) const
     {
-        return mIdToDescriptor.at(componentId);
+        const auto it = mIdToDescriptor.find(componentId);
+        return it != mIdToDescriptor.end() ? &it->second : nullptr;
     }
 
     flecs::id_t GetComponentId(const uint32_t typeHash) const
@@ -99,7 +102,7 @@ private:
     {
         mEcs.observer<ReplicatedComponent>()
             .event(flecs::OnAdd)
-            .each([](flecs::entity e, ReplicatedComponent& rep) {
+            .each([](ReplicatedComponent& rep) {
                 rep.mIsDirty = true;
                 rep.mIsNewEntity = true;
             });

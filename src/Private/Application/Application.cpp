@@ -160,16 +160,11 @@ int Application::RunAsMonolith(Environment::Options& options, const std::vector<
 
 void Application::UpdateReplication(fc::Network::ServerThread& serverThread) const
 {
-    mEcs.each<ReplicatedComponent>([&](const flecs::entity e, ReplicatedComponent& rep)
+    mEcs.each<ReplicatedComponent>([&](const flecs::entity entity, ReplicatedComponent& rep)
     {
         if (!rep.mIsDirty) return;
 
-        const std::vector<flecs::id_t> dirtyComponents(
-            rep.mDirtyComponents,
-            rep.mDirtyComponents + rep.mDirtyComponentCount
-        );
-
-        const auto request = Network::GenerateReplicationRequest(e, rep, false, dirtyComponents, mComponentRegistry);
+        const auto request = Network::GenerateReplicationRequest(entity, rep, *mComponentRegistry, false);
         serverThread.QueueReplicationRequest(request);
         rep.ClearDirty();
     });
@@ -177,13 +172,9 @@ void Application::UpdateReplication(fc::Network::ServerThread& serverThread) con
     std::vector<ENetPeer*> newPeers = serverThread.PopNewPeers();
     if (!newPeers.empty())
     {
-        mEcs.each<ReplicatedComponent>([&](const flecs::entity e, const ReplicatedComponent& rep)
+        mEcs.each<ReplicatedComponent>([&](const flecs::entity entity, const ReplicatedComponent& rep)
         {
-            const std::unordered_set<flecs::id_t>& ids = mComponentRegistry->GetReplicatedComponents();
-
-            const std::vector<flecs::id_t> components(ids.begin(), ids.end());
-
-            const auto request = Network::GenerateReplicationRequest(e, rep, true, components, mComponentRegistry);
+            const auto request = Network::GenerateReplicationRequest(entity, rep, *mComponentRegistry, true);
 
             for (ENetPeer* peer : newPeers)
             {

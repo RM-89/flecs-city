@@ -119,7 +119,7 @@ void ClientThread::HandleEvent(const ENetEvent& event)
     }
 }
 
-void ClientThread::ProcessReplicationQueue(fc::ECS::ComponentRegistry* registry)
+void ClientThread::ProcessReplicationQueue(const ECS::ComponentRegistry* registry)
 {
     std::queue<ReplicationRequest> queue;
     {
@@ -160,19 +160,18 @@ void ClientThread::ProcessReplicationQueue(fc::ECS::ComponentRegistry* registry)
         }
         else
         {
-            for (const auto& compData : req.mComponents)
+            for (const auto& [mTypeHash, mData] : req.mComponents)
             {
-                flecs::id_t compId = registry->GetComponentId(compData.mTypeHash);
-                if (compId != 0)
+                const flecs::id_t compId = registry->GetComponentId(mTypeHash);
+                if (compId == 0) continue;
+
+                const ECS::ComponentDescriptor* descriptor = registry->TryGetDescriptor(compId);
+                if (descriptor && mData.size() == descriptor->mSize)
                 {
-                    const ECS::ComponentDescriptor& desc = registry->GetDescriptor(compId);
-                    if (compData.mData.size() == desc.mSize)
-                    {
-                        e.add(compId);
-                        void* ptr = e.get_mut(compId);
-                        memcpy(ptr, compData.mData.data(), desc.mSize);
-                        e.modified(compId);
-                    }
+                    e.add(compId);
+                    void* ptr = e.get_mut(compId);
+                    memcpy(ptr, mData.data(), descriptor->mSize);
+                    e.modified(compId);
                 }
             }
         }
