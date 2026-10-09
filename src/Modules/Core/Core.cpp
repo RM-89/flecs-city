@@ -176,7 +176,11 @@ static void InitClientECS(const flecs::world& ecs)
             DrawModel(model.mModel, position.mPosition, model.mScale, model.mTint);
         });
 
-    ecs.system("EndDraw3D").kind(Draw3D).each([]() { EndMode3D(); });
+    ecs.system("EndDraw3D")
+        .kind(Draw3D)
+        .each([] {
+            EndMode3D();
+        });
 
     ecs.system<const PositionComponent, const TextComponent>("DrawText")
         .kind(Draw2D)
