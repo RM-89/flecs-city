@@ -1,10 +1,14 @@
 #include "Core.h"
 
-#include <strings.h>
+#include <chrono>
 
 #include <flecs.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <raylib.h>
-#include <chrono>
+#include <rcamera.h>
+#include <rlgl.h>
 #include <spdlog/spdlog.h>
 
 #include "Assets/Assets.h"
@@ -23,8 +27,13 @@
 namespace fc::Core
 {
 
-static flecs::system gPreDrawSystem;
-static flecs::system gEndDrawSystem;
+static constexpr float CAMERA_FOV = 60.0f;
+static constexpr float CAMERA_LOOK_SPEED = 0.003f;
+static constexpr float CAMERA_MOVE_SPEED = 40.0f;
+static constexpr float CAMERA_SLOW_MOVE_SPEED = 20.0f;
+
+static double gPreviousFrameTime = 0.0;
+static float gFrameDelta = 0.0;
 
 static void RegisterAssetTypes()
 {
@@ -96,36 +105,55 @@ static void InitServerECS(const flecs::world& ecs)
 
 static void InitClientECS(const flecs::world& ecs)
 {
-    Camera3D camera3D = {0};
+    gPreviousFrameTime = GetTime();
+
+    Camera3D camera3D = {};
     camera3D.position = {0.0f, 10.0f, 10.0f};
     camera3D.target = {0.0f, 0.0f, 0.0f};
     camera3D.up = {0.0f, 1.0f, 0.0f};
-    camera3D.fovy = 45.0f;
+    camera3D.fovy = CAMERA_FOV;
     camera3D.projection = CAMERA_PERSPECTIVE;
 
     ecs.set<CameraComponent>({camera3D});
 
-    gPreDrawSystem = ecs.system<CameraComponent>()
-                         .kind(PreDraw)
-                         .each([](CameraComponent& camera) {
-                             if (IsCursorHidden())
-                             {
-                                 UpdateCamera(&camera.mCamera, CAMERA_FREE);
-                             }
+    ecs.system("UpdateFrameDelta")
+        .kind(PreDraw)
+        .each([] {
+            const double now = GetTime();
+            gFrameDelta = static_cast<float>(now - gPreviousFrameTime);
+            gPreviousFrameTime = now;
+        });
 
-                             if (IsKeyPressed(KEY_C))
-                             {
-                                 IsCursorHidden() ? EnableCursor() : DisableCursor();
-                             }
+    ecs.system<CameraComponent>("Update")
+        .kind(PreDraw)
+        .each([](CameraComponent& camera) {
+            if (IsCursorHidden())
+            {
+                const auto [x, y] = GetMouseDelta();
+                CameraYaw(&camera.mCamera, -x * CAMERA_LOOK_SPEED, false);
+                CameraPitch(&camera.mCamera, -y * CAMERA_LOOK_SPEED, true, false, false);
 
-                             BeginDrawing();
-                             ClearBackground(LIGHTGRAY);
-                         });
+                const float speed = (IsKeyDown(KEY_LEFT_SHIFT) ? CAMERA_SLOW_MOVE_SPEED : CAMERA_MOVE_SPEED) * gFrameDelta;
+                if (IsKeyDown(KEY_W)) CameraMoveForward(&camera.mCamera, speed, false);
+                if (IsKeyDown(KEY_S)) CameraMoveForward(&camera.mCamera, -speed, false);
+                if (IsKeyDown(KEY_A)) CameraMoveRight(&camera.mCamera, -speed, false);
+                if (IsKeyDown(KEY_D)) CameraMoveRight(&camera.mCamera, speed, false);
+                if (IsKeyDown(KEY_SPACE)) CameraMoveUp(&camera.mCamera, speed);
+                if (IsKeyDown(KEY_LEFT_CONTROL)) CameraMoveUp(&camera.mCamera, -speed);
+            }
+
+            if (IsKeyPressed(KEY_C))
+            {
+                IsCursorHidden() ? EnableCursor() : DisableCursor();
+            }
+        });
 
     ecs.system<const CameraComponent>("BeginDraw3D")
         .kind(Draw3D)
         .each([](const CameraComponent& camera) {
+            BeginDrawing();
             BeginMode3D(camera.mCamera);
+            ClearBackground(LIGHTGRAY);
             DrawGrid(20, 2.0f);
         });
 
@@ -155,7 +183,31 @@ static void InitClientECS(const flecs::world& ecs)
         .each([](const PositionComponent& position,
                  const TextComponent& text) { DrawText(text.mText, static_cast<int>(position.mPosition.x), static_cast<int>(position.mPosition.y), 30.0, BLACK); });
 
-    gEndDrawSystem = ecs.system().kind(PostDraw).each([]() { EndDrawing(); });
+    ecs.system("ImGui")
+        .kind(PostDraw)
+        .each([] {
+            rlDrawRenderBatchActive();
+
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            ImGui::Begin("Debug");
+            ImGui::Text("Frame time: %.3f ms", gFrameDelta * 1000.0f);
+            ImGui::End();
+
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        });
+
+    ecs.system()
+        .kind(PostDraw)
+        .each([] {
+            EndDrawing();
+
+            SwapScreenBuffer();
+            PollInputEvents();
+        });
 }
 
 static void Cleanup(const flecs::world& ecs)

@@ -38,6 +38,7 @@ pub fn build(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
     {
         mod.linkSystemLibrary("flecs", .{});
         mod.linkSystemLibrary("raylib", .{});
+        mod.linkSystemLibrary("imgui", .{});
     }
 
     return b.addLibrary(.{ .name = "Core", .root_module = mod, .linkage = .dynamic });

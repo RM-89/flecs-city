@@ -9,3 +9,5 @@
 **/zig-pkg/
 
 compile_commands.json
+
+imgui.ini

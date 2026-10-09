@@ -62,6 +62,7 @@ pub fn build(b: *std.Build) !void
         mod.linkSystemLibrary("raylib", .{});
         mod.linkSystemLibrary("flecs", .{});
         mod.linkSystemLibrary("glfw", .{});
+        mod.linkSystemLibrary("imgui", .{});
     }
 
     const assets_lib = assets.build(b, target, optimize, vcpkg);

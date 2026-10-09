@@ -1,6 +1,10 @@
 #include "Application.h"
 
 #include <enet/enet.h>
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
 
@@ -49,9 +53,6 @@ int Application::Run(Environment::Options& options, std::vector<Module>& modules
     {
         module.RegisterComponents(mComponentRegistry);
     }
-
-    // For client and monolith modes
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
 
     int status = 0;
     if (options.IsServer() || options.IsClient())
@@ -103,13 +104,37 @@ int Application::RunAsServer(Environment::Options& options, const std::vector<Mo
     return 0;
 }
 
+static void CreateWindow()
+{
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
+    InitWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Flecs City");
+    SetTargetFPS(60);
+
+    GLFWwindow* window = glfwGetCurrentContext();
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+}
+
+static void DestroyWindow()
+{
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    CloseWindow();
+}
+
 int Application::RunAsClient(Environment::Options& options, const std::vector<Module>& modules) const
 {
     Network::ClientThread clientThread;
     clientThread.Start();
 
-    InitWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Flecs City");
-    SetTargetFPS(60);
+    CreateWindow();
 
     Environment::ConnectAddress connectAddress = options.GetConnectAddress();
     if (!clientThread.Connect(connectAddress.mHostString.c_str(), connectAddress.mPort))
@@ -129,15 +154,14 @@ int Application::RunAsClient(Environment::Options& options, const std::vector<Mo
         mEcs.progress();
     }
 
-    CloseWindow();
+    DestroyWindow();
 
     return 0;
 }
 
 int Application::RunAsMonolith(Environment::Options& options, const std::vector<Module>& modules) const
 {
-    InitWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "Flecs City");
-    SetTargetFPS(60);
+    CreateWindow();
 
     spdlog::info("Initialising ECS...");
     for (const auto module : modules)
@@ -153,7 +177,7 @@ int Application::RunAsMonolith(Environment::Options& options, const std::vector<
         mEcs.progress();
     }
 
-    CloseWindow();
+    DestroyWindow();
 
     return 0;
 }

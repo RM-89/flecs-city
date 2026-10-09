@@ -11,7 +11,7 @@ This is a C++ sandbox project for exploring Flecs v4 and raylib (as well as othe
 ## Setup
 
 1. Bootstrap vcpkg with `./vcpkg/bootstrap-vcpkg.sh` (`./vcpkg/bootstrap-vcpkg.bat` on Windows).
-2. Install dependencies with `./vcpkg/vcpkg install` (`./vcpkg/vcpkg.exe install --triplet=x64-mingw-dynamic` on Windows).
+2. Install dependencies with `./vcpkg/vcpkg install --triplet=x64-linux-dynamic` (`./vcpkg/vcpkg.exe install --triplet=x64-mingw-dynamic` on Windows).
 
 ## Building
 
