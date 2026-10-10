@@ -26,7 +26,7 @@ pub const Tests = struct
         const io = b.graph.io;
         var sources: std.ArrayList([]const u8) = .empty;
 
-        var handle = b.build_root.handle.openDir(io, dir, .{ .iterate = true }) catch |err| switch (err)
+        var handle = b.root.openDir(io, dir, .{ .iterate = true }) catch |err| switch (err)
         {
             error.FileNotFound => return finish(b, &sources),
             else => return err,
@@ -44,7 +44,7 @@ pub const Tests = struct
         const io = b.graph.io;
         var sources: std.ArrayList([]const u8) = .empty;
 
-        var modules = b.build_root.handle.openDir(io, base, .{ .iterate = true }) catch |err| switch (err)
+        var modules = b.root.openDir(io, base, .{ .iterate = true }) catch |err| switch (err)
         {
             error.FileNotFound => return finish(b, &sources),
             else => return err,
@@ -98,7 +98,7 @@ pub const Tests = struct
 
         const collected = try sources.toOwnedSlice(b.allocator);
 
-        if (b.verbose)
+        if (b.graph.verbose)
         {
             for (collected) |source|
             {

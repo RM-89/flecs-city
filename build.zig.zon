@@ -2,11 +2,11 @@
     .name = .zig_cpp,
     .version = "0.0.0",
     .fingerprint = 0x7758c7934b8119b6,
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .compile_commands = .{
-            .url = "https://github.com/the-argus/zig-compile-commands/archive/0bfc64178d456fdcf6e1838f0efba705f580bd71.tar.gz",
-            .hash = "zig_compile_commands-1.0.2-OZg5-QHMAQCIPCoTbJwpqq4-jEFHLRXqlw3Z2gF9Pom6",
+            .url = "https://github.com/RM-89/zig-compile-commands/archive/e1bcfe4300849a187387ef721d7fbc3cfc2ab849.tar.gz",
+            .hash = "zig_compile_commands-1.0.3-OZg5-bjGAQCoLGWFNXhLeZ1Ui5-Jc6Bfh6axsTXop-Wz",
         },
     },
     .paths = .{

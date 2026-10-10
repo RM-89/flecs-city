@@ -156,11 +156,8 @@ pub fn build(b: *std.Build) !void
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&test_cmd.step);
 
-    if (b.args) |args|
-    {
-        run_cmd.addArgs(args);
-        test_cmd.addArgs(args);
-    }
+    run_cmd.addPassthruArgs();
+    test_cmd.addPassthruArgs();
 
     const cdb = zcc.createStep(b, .{
         .name = "cdb",
