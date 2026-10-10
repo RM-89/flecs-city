@@ -1,4 +1,9 @@
-on: [push]
+name: Test
+
+on:
+  push:
+    branches:
+      - main
 
 jobs:
     test:
