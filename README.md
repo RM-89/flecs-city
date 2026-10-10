@@ -24,4 +24,3 @@ Run `zig build run`. Supported args (pass after `--`):
 * -m[mode], --mode=[mode]: Mode to run in (monolith|server|client). Defaults to monolith.
 * -l[listen], --listen=[listen]: Port to listen on (if mode is Server). Defaults to 6420.
 * -c[connect], --connect=[connect]: Address to connect to (if mode is Client). Defaults to 127.0.0.1:6420.
-
