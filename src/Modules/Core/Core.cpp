@@ -196,6 +196,8 @@ static void InitClientECS(const flecs::world& ecs)
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
+            ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
             ImGui::Begin("Debug");
             ImGui::Text("Frame time: %.3f ms", gFrameDelta * 1000.0f);
             ImGui::End();
