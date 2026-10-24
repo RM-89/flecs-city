@@ -10,6 +10,7 @@ namespace fc
 CORE_API extern flecs::entity PreDraw;
 CORE_API extern flecs::entity Draw3D;
 CORE_API extern flecs::entity Draw2D;
+CORE_API extern flecs::entity DrawUI;
 CORE_API extern flecs::entity PostDraw;
 
 void InitPhases(const flecs::world& ecs);

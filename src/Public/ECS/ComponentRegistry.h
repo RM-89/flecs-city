@@ -21,6 +21,7 @@ struct ComponentDescriptor
     static constexpr size_t MAX_NAME_LENGTH = 128;
     char mName[MAX_NAME_LENGTH]{};
     uint32_t mTypeHash{};
+    bool mIsSingleton{false};
 
     ComponentDescriptor() = default;
 
@@ -45,20 +46,13 @@ public:
     template <typename T>
     flecs::component<T> RegisterReplicatedComponent(const std::string& name)
     {
-        flecs::component<T> type = this->RegisterComponent<T>();
+        return RegisterReplicatedInternal<T>(name, false);
+    }
 
-        ComponentDescriptor desc(name);
-        desc.mComponentId = mEcs.id<T>();
-        desc.mSize = sizeof(T);
-        desc.mTypeHash = Utils::String::HashString(name);
-
-        mIdToDescriptor[desc.mComponentId] = desc;
-        mHashToId[desc.mTypeHash] = desc.mComponentId;
-        mComponents.insert(desc.mComponentId);
-
-        this->InitComponentObserver<T>();
-
-        return type;
+    template <typename T>
+    flecs::component<T> RegisterReplicatedSingleton(const std::string& name)
+    {
+        return RegisterReplicatedInternal<T>(name, true);
     }
 
     const std::unordered_set<flecs::id_t>& GetReplicatedComponents() const
@@ -145,6 +139,35 @@ private:
                 // sending the component data
                 rep.mIsDirty = true;
             });
+    }
+
+    template <typename T>
+    flecs::component<T> RegisterReplicatedInternal(const std::string& name, bool isSingleton)
+    {
+        flecs::component<T> type = this->RegisterComponent<T>();
+
+        ComponentDescriptor desc(name);
+        desc.mComponentId = mEcs.id<T>();
+        desc.mSize = sizeof(T);
+        desc.mTypeHash = Utils::String::HashString(name);
+        desc.mIsSingleton = isSingleton;
+
+        mIdToDescriptor[desc.mComponentId] = desc;
+        mHashToId[desc.mTypeHash] = desc.mComponentId;
+        mComponents.insert(desc.mComponentId);
+
+        this->InitComponentObserver<T>();
+
+        if (isSingleton)
+        {
+            type.add(flecs::Singleton);
+
+            flecs::id id = mEcs.id<T>();
+            flecs::entity e = id.entity();
+            e.add<ReplicatedComponent>();
+        }
+
+        return type;
     }
 };
 

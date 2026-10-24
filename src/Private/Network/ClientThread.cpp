@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include "ECS/ComponentRegistry.h"
+#include "Network/ReplicationRequest.h"
 
 namespace fc::Network
 {
@@ -104,7 +105,15 @@ void ClientThread::HandleEvent(const ENetEvent& event)
                         std::lock_guard<std::mutex> lock(mReplicationMutex);
                         const std::vector<uint8_t> data(event.packet->data, event.packet->data + event.packet->dataLength);
                         auto request = ReplicationRequest::Deserialise(data);
-                        mReplicationQueue.push(std::move(request));
+
+                        if (request.mType > ReplicationType::Destroyed)
+                        {
+                            spdlog::warn("Received invalid replication request type {}; skipping", static_cast<uint8_t>(request.mType));
+                        }
+                        else
+                        {
+                            mReplicationQueue.push(std::move(request));
+                        }
                     }
 
                     enet_packet_destroy(event.packet);
@@ -129,51 +138,81 @@ void ClientThread::ProcessReplicationQueue(const ECS::ComponentRegistry* registr
 
     const auto& ecs = registry->GetWorld();
 
+    auto LookupEntity = [&](const uint64_t entityId) {
+        auto it = mServerToClientEntities.find(entityId);
+        if (it != mServerToClientEntities.end())
+        {
+            return ecs.entity(it->second);
+        }
+
+        spdlog::error("Received replication request for unknown entity {}", entityId);
+        return flecs::entity::null();
+    };
+
+    auto ApplyComponent = [](const flecs::entity& target, const flecs::id_t compId,
+                         const ECS::ComponentDescriptor& desc,
+                         const std::vector<uint8_t>& data)
+    {
+        target.add(compId);
+        memcpy(target.get_mut(compId), data.data(), desc.mSize);
+        target.modified(compId);
+    };
+
+    auto UpdateEntity = [&](const flecs::entity& e, const ReplicationRequest& req) {
+        for (const auto& [typeHash, data] : req.mComponents)
+        {
+            const flecs::id_t compId = registry->GetComponentId(typeHash);
+            if (compId == 0) continue;
+            const auto* desc = registry->TryGetDescriptor(compId);
+            if (!desc || data.size() != desc->mSize) continue;
+            ApplyComponent(e, compId, *desc, data);
+        }
+    };
+
     while (!queue.empty())
     {
         auto& req = queue.front();
 
-        flecs::entity e;
-
-        if (req.mIsNewEntity)
+        switch (req.mType)
         {
-            e = ecs.entity();
-            mServerToClientEntities[req.mEntityId] = e.id();
-        }
-        else
-        {
-            auto it = mServerToClientEntities.find(req.mEntityId);
-            if (it != mServerToClientEntities.end())
-            {
-                e = ecs.entity(it->second);
-            }
-            else
-            {
-                spdlog::error("Received replication request for unknown entity {}", req.mEntityId);
-            }
-        }
-
-        if (req.mIsDestroyed)
-        {
-            e.destruct();
-            mServerToClientEntities.erase(req.mEntityId);
-        }
-        else
-        {
-            for (const auto& [mTypeHash, mData] : req.mComponents)
-            {
-                const flecs::id_t compId = registry->GetComponentId(mTypeHash);
-                if (compId == 0) continue;
-
-                const ECS::ComponentDescriptor* descriptor = registry->TryGetDescriptor(compId);
-                if (descriptor && mData.size() == descriptor->mSize)
+            case ReplicationType::Update:
                 {
-                    e.add(compId);
-                    void* ptr = e.get_mut(compId);
-                    memcpy(ptr, mData.data(), descriptor->mSize);
-                    e.modified(compId);
+                    auto e = LookupEntity(req.mEntityId);
+                    if (e) UpdateEntity(e, req);
                 }
-            }
+                break;
+            case ReplicationType::NewEntity:
+                {
+                    auto e = ecs.entity();
+                    mServerToClientEntities[req.mEntityId] = e.id();
+
+                    UpdateEntity(e, req);
+                }
+                break;
+            case ReplicationType::Singleton:
+                for (const auto& [typeHash, data] : req.mComponents)
+                {
+                    const flecs::id_t compId = registry->GetComponentId(typeHash);
+                    if (compId == 0) continue; // component not registered on this client
+
+                    const auto* desc = registry->TryGetDescriptor(compId);
+                    if (!desc || data.size() != desc->mSize) continue;
+                    if (!desc->mIsSingleton)
+                    {
+                        spdlog::warn("Received singleton replication for non-singleton component {}", desc->mName);
+                        continue;
+                    }
+
+                    ApplyComponent(ecs.entity(compId), compId, *desc, data);
+                }
+                break;
+            case ReplicationType::Destroyed:
+                if (const auto e = LookupEntity(req.mEntityId))
+                {
+                    e.destruct();
+                    mServerToClientEntities.erase(req.mEntityId);
+                }
+                break;
         }
 
         queue.pop();

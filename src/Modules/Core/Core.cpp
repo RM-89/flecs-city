@@ -21,6 +21,7 @@
 #include "ECS/Components/ModelComponent.h"
 #include "ECS/Components/ModelInstanceComponent.h"
 #include "ECS/Components/PositionComponent.h"
+#include "ECS/Components/ServerUptimeComponent.h"
 #include "ECS/Components/TextComponent.h"
 #include "ECS/Phases.h"
 
@@ -47,6 +48,7 @@ static void RegisterComponents(ECS::ComponentRegistry* registry)
     registry->RegisterComponent<CameraComponent>().add(flecs::Singleton);
     registry->RegisterComponent<ModelInstanceComponent>();
 
+    registry->RegisterReplicatedSingleton<ServerUptimeComponent>("ServerUptimeComponent");
     registry->RegisterReplicatedComponent<PositionComponent>("PositionComponent");
     registry->RegisterReplicatedComponent<TextComponent>("TextComponent");
     registry->RegisterReplicatedComponent<ModelComponent>("ModelComponent");
@@ -59,46 +61,19 @@ static void InitCommonECS(const flecs::world& ecs)
 
 static void InitServerECS(const flecs::world& ecs)
 {
-    ecs.entity()
-        .set<ReplicatedComponent>({})
-        .set<PositionComponent>({20, 20, 0})
-        .set<TextComponent>("");
+    ecs.set<ServerUptimeComponent>({});
 
-    static bool hasCreatedBuildings{false};
     static auto serverStartTime = std::chrono::steady_clock::now();
-    ecs.system<TextComponent>("UpdateUptimeText")
-        .with<ReplicatedComponent>()
-        .each([](const flecs::entity e, TextComponent& textComponent)
+    ecs.system<ServerUptimeComponent>("UpdateServerUptime")
+        .each([&ecs](ServerUptimeComponent& component)
         {
             const auto now = std::chrono::steady_clock::now();
-            int seconds = static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(now - serverStartTime).count());
-            const std::string text = fmt::format("Time elapsed since server start: {:d}s", seconds);
-            // Only change the component trigger replication if the string has changed
-            if (strcmp(text.c_str(), textComponent.mText) != 0)
+            const int uptime = static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(now - serverStartTime).count());
+
+            if (uptime != component.mUptime_s)
             {
-                std::snprintf(textComponent.mText, sizeof(textComponent.mText), "%s", text.c_str());
-                e.modified<TextComponent>();
-            }
-
-            if (hasCreatedBuildings == false && seconds > 9)
-            {
-                e.world().entity()
-                    .set<ReplicatedComponent>({})
-                    .set<PositionComponent>({1.0, 0, 1.0})
-                    .set<ModelComponent>({Assets::MakeAssetId("building_A", ModelAsset::Type)});
-
-                e.world().entity()
-                    .set<ReplicatedComponent>({})
-                    .set<PositionComponent>({3.0, 0, 1.0})
-                    .set<ModelComponent>({Assets::MakeAssetId("building_B", ModelAsset::Type)});
-
-                e.world().entity()
-                    .set<ReplicatedComponent>({})
-                    .set<PositionComponent>({5.0, 0, 1.0})
-                    .set<ModelComponent>({Assets::MakeAssetId("building_C", ModelAsset::Type)});
-
-                spdlog::info("Created building entities");
-                hasCreatedBuildings = true;
+                component.mUptime_s = uptime;
+                ecs.modified<ServerUptimeComponent>();
             }
         });
 }
@@ -182,13 +157,8 @@ static void InitClientECS(const flecs::world& ecs)
             EndMode3D();
         });
 
-    ecs.system<const PositionComponent, const TextComponent>("DrawText")
-        .kind(Draw2D)
-        .each([](const PositionComponent& position,
-                 const TextComponent& text) { DrawText(text.mText, static_cast<int>(position.mPosition.x), static_cast<int>(position.mPosition.y), 30.0, BLACK); });
-
-    ecs.system("ImGui")
-        .kind(PostDraw)
+    ecs.system("StartImGui")
+        .kind(DrawUI)
         .each([] {
             rlDrawRenderBatchActive();
 
@@ -197,11 +167,20 @@ static void InitClientECS(const flecs::world& ecs)
             ImGui::NewFrame();
 
             ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+        });
 
+    ecs.system<const ServerUptimeComponent>("DrawDebugUI")
+        .kind(DrawUI)
+        .each([](const ServerUptimeComponent& uptime) {
             ImGui::Begin("Debug");
+            ImGui::Text("Server uptime: %d s", uptime.mUptime_s);
             ImGui::Text("Frame time: %.3f ms", gFrameDelta * 1000.0f);
             ImGui::End();
+        });
 
+    ecs.system("EndImGui")
+        .kind(PostDraw)
+        .each([] {
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         });

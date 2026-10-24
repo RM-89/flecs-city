@@ -11,6 +11,14 @@
 namespace fc::Network
 {
 
+enum class ReplicationType : uint8_t
+{
+    Update = 0,
+    NewEntity = 1,
+    Singleton = 2,
+    Destroyed = 3,
+};
+
 /// @brief Represents a replication request for a single entity.
 struct ReplicationRequest
 {
@@ -22,8 +30,7 @@ struct ReplicationRequest
 
     // Serialised fields
     uint64_t mEntityId{};
-    bool mIsNewEntity{false};
-    bool mIsDestroyed{false};
+    ReplicationType mType{};
     std::vector<ComponentData> mComponents;
 
     ENetPeer* mRecipient = nullptr;
@@ -39,11 +46,7 @@ struct ReplicationRequest
         };
 
         Write(&mEntityId, sizeof(mEntityId));
-
-        const uint8_t isNew = mIsNewEntity ? 1 : 0;
-        const uint8_t isDestroyed = mIsDestroyed ? 1 : 0;
-        Write(&isNew, 1);
-        Write(&isDestroyed, 1);
+        Write(&mType, sizeof(mType));
 
         const auto componentCount = static_cast<uint16_t>(mComponents.size());
         Write(&componentCount, sizeof(componentCount));
@@ -72,12 +75,7 @@ struct ReplicationRequest
         };
 
         Read(&request.mEntityId, sizeof(request.mEntityId));
-
-        uint8_t isNew, isDestroyed;
-        Read(&isNew, 1);
-        Read(&isDestroyed, 1);
-        request.mIsNewEntity = (isNew != 0);
-        request.mIsDestroyed = (isDestroyed != 0);
+        Read(&request.mType, sizeof(request.mType));
 
         uint16_t componentCount;
         Read(&componentCount, sizeof(componentCount));
@@ -113,7 +111,18 @@ struct ReplicationRequest
 {
     ReplicationRequest request;
     request.mEntityId = entity.id();
-    request.mIsNewEntity = forceNew || rep.mIsNewEntity;
+
+    const bool isFullState = forceNew || rep.mIsNewEntity;
+
+    if (const auto* srcDesc = registry.TryGetDescriptor(entity.id()); srcDesc && srcDesc->mIsSingleton)
+    {
+        request.mType = ReplicationType::Singleton;
+    }
+    // TODO: handle destroyed entities
+    else
+    {
+        request.mType = isFullState ? ReplicationType::NewEntity : ReplicationType::Update;
+    }
 
     auto addComponent = [&](const flecs::id_t componentId)
     {
@@ -129,7 +138,7 @@ struct ReplicationRequest
         }
     };
 
-    if (request.mIsNewEntity)
+    if (isFullState)
     {
         for (const flecs::id_t componentId : registry.GetReplicatedComponents())
         {
