@@ -6,6 +6,7 @@
 
 #include <enet/enet.h>
 
+#include "ECS/Message.h"
 #include "Network/NetworkThread.h"
 #include "Network/ReplicationRequest.h"
 
@@ -22,6 +23,10 @@ public:
 
     void QueueReplicationRequest(const ReplicationRequest& packet);
 
+    /// @brief Queues a message for sending on the Messaging channel.
+    /// Sends to @c ECS::Message::mRecipient if set, otherwise broadcasts to all connected peers.
+    void QueueECSMessage(const ECS::Message& message) override;
+
 protected:
     bool Init() override;
     void HandleEvent(const ENetEvent& event) override;
@@ -30,6 +35,7 @@ protected:
 private:
     /// @brief All connected peers
     std::vector<ENetPeer*> mConnectedPeers;
+    std::mutex mConnectedPeersMutex;
 
     /// @brief Peers that have connected and need to be sent a full snapshot
     std::unordered_set<ENetPeer*> mNewPeers;
@@ -37,8 +43,8 @@ private:
     /// @brief Peers that have received a full snapshot and are ready to receive deltas
     std::unordered_set<ENetPeer*> mReadyPeers;
 
-    std::mutex mReplicationMutex;
     std::queue<ReplicationRequest> mReplicationQueue;
+    std::mutex mReplicationMutex;
 
     void ProcessReplicationQueue();
 };

@@ -1,11 +1,13 @@
 #include "ServerThread.h"
 
 #include <algorithm>
-#include <cstdint>
-#include "Network/ReplicationRequest.h"
 
 #include <enet/enet.h>
 #include <spdlog/spdlog.h>
+
+#include "Constants.h"
+#include "ECS/Message.h"
+#include "Network/ReplicationRequest.h"
 
 namespace fc::Network
 {
@@ -21,6 +23,27 @@ void ServerThread::QueueReplicationRequest(const ReplicationRequest& packet)
 {
     std::lock_guard<std::mutex> lock(mReplicationMutex);
     mReplicationQueue.push(packet);
+}
+
+void ServerThread::QueueECSMessage(const ECS::Message& message)
+{
+    if (message.mRecipient != nullptr)
+    {
+        QueueECSMessageTo(message, message.mRecipient);
+        return;
+    }
+
+    // This is a broadcast - snapshot the peers so we don't hold the lock while queueing
+    std::vector<ENetPeer*> peers;
+    {
+        std::lock_guard<std::mutex> lock(mConnectedPeersMutex);
+        peers = mConnectedPeers;
+    }
+
+    for (ENetPeer* peer : peers)
+    {
+        QueueECSMessageTo(message, peer);
+    }
 }
 
 std::vector<ENetPeer*> ServerThread::PopNewPeers()
@@ -43,7 +66,7 @@ bool ServerThread::Init()
     mNewPeers.clear();
     mReadyPeers.clear();
 
-    mHost = enet_host_create(&mAddress, 32, 2, 0, 0);
+    mHost = enet_host_create(&mAddress, MAX_CLIENTS, CHANNEL_COUNT, 0, 0);
     if (mHost == NULL)
     {
         spdlog::error("An error occurred while trying to create an ENet server host.");
@@ -67,16 +90,19 @@ void ServerThread::HandleEvent(const ENetEvent& event)
                 char hostStr[64];
                 enet_address_get_host_ip(&event.peer->address, hostStr, sizeof(hostStr));
 
-                mConnectedPeers.push_back(event.peer);
-                
+                size_t totalClients;
+                {
+                    std::lock_guard<std::mutex> lock(mConnectedPeersMutex);
+                    mConnectedPeers.push_back(event.peer);
+                    totalClients = mConnectedPeers.size();
+                }
+
                 {
                     std::lock_guard<std::mutex> lock(mReplicationMutex);
                     mNewPeers.insert(event.peer);
                 }
 
-                spdlog::info("Client connected from {}:{} (peer ID: {}). Total clients: {}.", hostStr, event.peer->address.port, event.peer->incomingPeerID, mConnectedPeers.size());
-
-                QueueMessage("Welcome", event.peer, Channel::General, ENET_PACKET_FLAG_RELIABLE);
+                spdlog::info("Client connected from {}:{} (peer ID: {}). Total clients: {}.", hostStr, event.peer->address.port, event.peer->incomingPeerID, totalClients);
             }
             break;
 
@@ -85,10 +111,15 @@ void ServerThread::HandleEvent(const ENetEvent& event)
                 char hostStr[64];
                 enet_address_get_host_ip(&event.peer->address, hostStr, sizeof(hostStr));
 
-                auto it = std::find(mConnectedPeers.begin(), mConnectedPeers.end(), event.peer);
-                if (it != mConnectedPeers.end())
+                size_t totalClients;
                 {
-                    mConnectedPeers.erase(it);
+                    std::lock_guard<std::mutex> lock(mConnectedPeersMutex);
+                    auto it = std::find(mConnectedPeers.begin(), mConnectedPeers.end(), event.peer);
+                    if (it != mConnectedPeers.end())
+                    {
+                        mConnectedPeers.erase(it);
+                    }
+                    totalClients = mConnectedPeers.size();
                 }
 
                 {
@@ -97,7 +128,7 @@ void ServerThread::HandleEvent(const ENetEvent& event)
                     mReadyPeers.erase(event.peer);
                 }
 
-                spdlog::info("Client disconnected from {}:{} (peer ID: {}). Remaining clients: {}.", hostStr, event.peer->address.port, event.peer->incomingPeerID, mConnectedPeers.size());
+                spdlog::info("Client disconnected from {}:{} (peer ID: {}). Remaining clients: {}.", hostStr, event.peer->address.port, event.peer->incomingPeerID, totalClients);
             }
             break;
 
@@ -123,7 +154,7 @@ void ServerThread::ProcessReplicationQueue()
 
         if (packet.mRecipient != nullptr)
         {
-            QueueMessage(buffer, packet.mRecipient, Channel::Replication, ENET_PACKET_FLAG_UNSEQUENCED);
+            QueueMessageTo(buffer, packet.mRecipient, Channel::Replication, ENET_PACKET_FLAG_UNSEQUENCED);
             mReadyPeers.insert(packet.mRecipient);
         }
         else
@@ -131,7 +162,7 @@ void ServerThread::ProcessReplicationQueue()
             // This is a broadcast - send to ready peers only
             for (ENetPeer* peer : mReadyPeers)
             {
-                QueueMessage(buffer, peer, Channel::Replication, ENET_PACKET_FLAG_UNSEQUENCED);
+                QueueMessageTo(buffer, peer, Channel::Replication, ENET_PACKET_FLAG_UNSEQUENCED);
             }
         }
 

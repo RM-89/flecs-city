@@ -8,6 +8,7 @@
 
 #include <flecs.h>
 
+#include "MessageComponents.h"
 #include "ReplicatedComponent.h"
 #include "Utils/String.h"
 
@@ -43,10 +44,53 @@ public:
         return mEcs.component<T>();
     }
 
+    /// @brief Registers a component as a replicated type.
+    ///
+    /// - In server mode, replicated components on entities that have @c fc::ECS::ReplicatedComponent are replicated to all clients.
+    /// - In client and monolith modes, replicated components are treated as regular components.
+    ///
+    /// @note Components registered this way must be trivially copyable.
     template <typename T>
     flecs::component<T> RegisterReplicatedComponent(const std::string& name)
     {
         return RegisterReplicatedInternal<T>(name, false);
+    }
+
+    /// @brief Registers a component as a message type.
+    ///
+    /// - A message can be sent by creating an entity with a message component.
+    /// - In server mode, the message is sent to a specific client if the message entity has @c fc::ECS::MessageRecipient, otherwise it's broadcast to all clients.
+    /// - In client mode, the message is always sent to the server.
+    /// - In monolith mode, messages are treated as regular components.
+    /// - In all modes, message entities are cleaned up at the end of the frame.
+    ///
+    /// @note Components registered this way must be trivially copyable.
+    template <typename T>
+    flecs::component<T> RegisterMessageComponent(const std::string& name)
+    {
+        flecs::component<T> type = this->RegisterComponent<T>();
+
+        ComponentDescriptor desc(name);
+        desc.mComponentId = mEcs.id<T>();
+        desc.mSize = sizeof(T);
+        desc.mTypeHash = Utils::String::HashString(name);
+        desc.mIsSingleton = false;
+
+        mMessageIdToDescriptor[desc.mComponentId] = desc;
+        mMessageHashToId[desc.mTypeHash] = desc.mComponentId;
+        mMessageComponents.insert(desc.mComponentId);
+
+        mEcs.observer()
+            .with<T>()
+            .event(flecs::OnAdd)
+            .each([](const flecs::entity e) {
+                if (!e.has<MessageIncomingTag>())
+                {
+                    e.add<MessageOutgoingTag>();
+                }
+            });
+
+        return type;
     }
 
     template <typename T>
@@ -78,6 +122,32 @@ public:
         return 0;
     }
 
+    /// @brief Looks up a message component descriptor.
+    /// @return A pointer to the descriptor, or nullptr if the id isn't a registered message component.
+    const ComponentDescriptor* TryGetMessageDescriptor(const flecs::id_t componentId) const
+    {
+        const auto it = mMessageIdToDescriptor.find(componentId);
+        return it != mMessageIdToDescriptor.end() ? &it->second : nullptr;
+    }
+
+    /// @brief Resolves a serialised message type hash to a component id.
+    /// @return The component id, or 0 if the hash isn't a registered message component.
+    flecs::id_t GetMessageComponentId(const uint32_t typeHash) const
+    {
+        auto it = mMessageHashToId.find(typeHash);
+        if (it != mMessageHashToId.end())
+        {
+            return it->second;
+        }
+        return 0;
+    }
+
+    /// @brief All registered message component ids.
+    const std::unordered_set<flecs::id_t>& GetMessageComponents() const
+    {
+        return mMessageComponents;
+    }
+
     flecs::world& GetWorld() const
     {
         return mEcs;
@@ -89,6 +159,10 @@ private:
     std::unordered_map<flecs::id_t, ComponentDescriptor> mIdToDescriptor;
     std::unordered_map<uint32_t, flecs::id_t> mHashToId;
     std::unordered_set<flecs::id_t> mComponents;
+
+    std::unordered_map<flecs::id_t, ComponentDescriptor> mMessageIdToDescriptor;
+    std::unordered_map<uint32_t, flecs::id_t> mMessageHashToId;
+    std::unordered_set<flecs::id_t> mMessageComponents;
 
     std::queue<uint64_t> mDestructionQueue;
 

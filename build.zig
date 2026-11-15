@@ -26,13 +26,13 @@ pub fn build(b: *std.Build) !void
             "src/Private/Application/Application.cpp",
             "src/Private/Environment/Options.cpp",
             "src/Private/Network/ClientThread.cpp",
+            "src/Private/Network/ECSMessage.cpp",
             "src/Private/Network/NetworkThread.cpp",
             "src/Private/Network/ServerThread.cpp",
         },
         .flags = &.{"-std=c++17"},
     });
 
-    mod.addCMacro("SPDLOG_HEADER_ONLY", "1");
     mod.addCMacro("FMT_HEADER_ONLY", "1");
 
     mod.addIncludePath(b.path("src/Public"));
@@ -133,7 +133,6 @@ pub fn build(b: *std.Build) !void
         .flags = &.{"-std=c++17"},
     });
 
-    test_mod.addCMacro("SPDLOG_HEADER_ONLY", "1");
     test_mod.addCMacro("FMT_HEADER_ONLY", "1");
 
     test_mod.addIncludePath(b.path("src/Public"));

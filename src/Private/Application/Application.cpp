@@ -9,8 +9,10 @@
 #include <raylib.h>
 
 #include "Assets/Assets.h"
+#include "ECS/MessageComponents.h"
 #include "Logging/Utils.h"
 #include "Network/ClientThread.h"
+#include "Network/ECSMessage.h"
 #include "Network/ReplicationRequest.h"
 
 namespace fc
@@ -49,6 +51,11 @@ int Application::Run(Environment::Options& options, std::vector<Module>& modules
     }
 
     spdlog::info("Registering components...");
+    mComponentRegistry->RegisterComponent<ECS::MessageOutgoingTag>();
+    mComponentRegistry->RegisterComponent<ECS::MessageIncomingTag>();
+    mComponentRegistry->RegisterComponent<ECS::MessageRecipient>();
+    mComponentRegistry->RegisterComponent<ECS::MessageSender>();
+
     for (const auto module : modules)
     {
         module.RegisterComponents(mComponentRegistry);
@@ -97,8 +104,10 @@ int Application::RunAsServer(Environment::Options& options, const std::vector<Mo
     spdlog::info("Entering main loop...");
     while (!mShouldQuit)
     {
+        Network::DrainIncomingECSMessages(serverThread, *mComponentRegistry);
         mEcs.progress();
         UpdateReplication(serverThread);
+        Network::ProcessEndFrameECSMessages(&serverThread, *mComponentRegistry);
     }
 
     return 0;
@@ -152,8 +161,10 @@ int Application::RunAsClient(Environment::Options& options, const std::vector<Mo
     spdlog::info("Entering main loop...");
     while (!WindowShouldClose())
     {
+        Network::DrainIncomingECSMessages(clientThread, *mComponentRegistry);
         clientThread.ProcessReplicationQueue(mComponentRegistry);
         mEcs.progress();
+        Network::ProcessEndFrameECSMessages(&clientThread, *mComponentRegistry);
     }
 
     DestroyWindow();
@@ -177,6 +188,9 @@ int Application::RunAsMonolith(Environment::Options& options, const std::vector<
     while (!WindowShouldClose())
     {
         mEcs.progress();
+
+        // Network messages are processed in the same ECS world in monolith mode, so we only need to clean them up
+        Network::ProcessEndFrameECSMessages(nullptr, *mComponentRegistry);
     }
 
     DestroyWindow();
@@ -186,7 +200,7 @@ int Application::RunAsMonolith(Environment::Options& options, const std::vector<
 
 void Application::UpdateReplication(fc::Network::ServerThread& serverThread) const
 {
-    mEcs.each<ReplicatedComponent>([&](const flecs::entity entity, ReplicatedComponent& rep)
+    mEcs.each<ECS::ReplicatedComponent>([&](const flecs::entity entity, ECS::ReplicatedComponent& rep)
     {
         if (!rep.mIsDirty) return;
 
@@ -198,7 +212,7 @@ void Application::UpdateReplication(fc::Network::ServerThread& serverThread) con
     std::vector<ENetPeer*> newPeers = serverThread.PopNewPeers();
     if (!newPeers.empty())
     {
-        mEcs.each<ReplicatedComponent>([&](const flecs::entity entity, const ReplicatedComponent& rep)
+        mEcs.each<ECS::ReplicatedComponent>([&](const flecs::entity entity, const ECS::ReplicatedComponent& rep)
         {
             const auto request = Network::GenerateReplicationRequest(entity, rep, *mComponentRegistry, true);
 

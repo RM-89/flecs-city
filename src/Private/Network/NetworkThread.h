@@ -8,6 +8,7 @@
 
 #include <enet/enet.h>
 
+#include "ECS/Message.h"
 #include "Network/Types.h"
 
 namespace fc::Network
@@ -16,7 +17,8 @@ namespace fc::Network
 enum Channel : uint8_t
 {
     General = 0,
-    Replication = 1
+    Replication = 1,
+    Messaging = 2
 };
 
 struct Event
@@ -49,6 +51,16 @@ public:
 
     bool PollEvent(Event& outEvent);
 
+    /// @brief Pops the next message that was received on @c fc::Network::Channel::Messaging (if any).
+    /// @return True if a message was popped.
+    bool TryPopECSMessage(ECS::Message& outMessage);
+
+    /// @brief Queues a message for sending on @c fc::Network::Channel::Messaging.
+    ///
+    /// - In server mode, queued messages are sent to specific clients when specified or broadcast to all clients otherwise.
+    /// - In client mode, queued messages are sent to the server.
+    virtual void QueueECSMessage(const ECS::Message& message) = 0;
+
 protected:
     std::thread mThread;
     std::atomic<State> mState{State::Idle};
@@ -62,11 +74,13 @@ protected:
     std::mutex mOutgoingMutex;
     std::condition_variable mOutgoingCV;
 
-    std::queue<InMessage> mIncomingMessages;
-    std::queue<OutMessage> mOutgoingMessages;
+    std::queue<ECS::Message> mIncomingMessages;
+    std::queue<OutboundMessage> mOutgoingMessages;
 
-    void QueueMessage(const std::string& data, ENetPeer* peer, Channel channel, uint32_t flags);
-    void QueueMessage(const std::vector<uint8_t>& data, ENetPeer* peer, Channel channel, uint32_t flags);
+    void QueueMessageTo(const std::vector<uint8_t>& data, ENetPeer* peer, Channel channel, uint32_t flags);
+
+    /// @brief Serialises a @c fc::Network::Message and queues it for sending to a single peer.
+    void QueueECSMessageTo(const ECS::Message& message, ENetPeer* peer);
 
     virtual bool Init() = 0;
     virtual void HandleEvent(const ENetEvent& event);

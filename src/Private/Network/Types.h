@@ -8,15 +8,8 @@
 namespace fc::Network
 {
 
-/// @brief Represents a generic message received from a peer.
-struct InMessage
-{
-    std::vector<uint8_t> mData;
-    uint32_t mChannel{0};
-};
-
 /// @brief Represents a generic message ready to send to a peer.
-struct OutMessage
+struct OutboundMessage
 {
     std::vector<uint8_t> mData;
     ENetPeer* mPeer;

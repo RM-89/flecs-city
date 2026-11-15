@@ -28,6 +28,9 @@ public:
     bool Connect(const char* address, uint32_t port);
     void Disconnect() override;
 
+    /// @brief Queues a message for sending to the server on the Messaging channel.
+    void QueueECSMessage(const ECS::Message& message) override;
+
     void ProcessReplicationQueue(const fc::ECS::ComponentRegistry* registry);
 
 protected:

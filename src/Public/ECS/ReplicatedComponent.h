@@ -2,6 +2,9 @@
 
 #include <flecs.h>
 
+namespace fc::ECS
+{
+
 /// @brief Component for designating an entity as replicated.
 struct ReplicatedComponent
 {
@@ -44,3 +47,4 @@ struct ReplicatedComponent
         return false;
     }
 };
+} // namespace fc::ECS

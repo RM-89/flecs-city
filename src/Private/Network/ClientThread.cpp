@@ -5,6 +5,7 @@
 #include <enet/enet.h>
 #include <spdlog/spdlog.h>
 
+#include "Constants.h"
 #include "ECS/ComponentRegistry.h"
 #include "Network/ReplicationRequest.h"
 
@@ -18,7 +19,7 @@ bool ClientThread::Connect(const char* address, uint32_t port)
     enet_address_set_host(&mAddress, address);
     mAddress.port = port;
 
-    mPeer = enet_host_connect(mHost, &mAddress, 2, 0);
+    mPeer = enet_host_connect(mHost, &mAddress, CHANNEL_COUNT, 0);
     if (mPeer == nullptr)
     {
         spdlog::error("No available peers for initiating an ENet connection.");
@@ -70,9 +71,20 @@ void ClientThread::Disconnect()
     mState = State::Idle;
 }
 
+void ClientThread::QueueECSMessage(const ECS::Message& message)
+{
+    if (mPeer == nullptr)
+    {
+        spdlog::warn("Dropping a message - not connected to the server.");
+        return;
+    }
+
+    QueueECSMessageTo(message, mPeer);
+}
+
 bool ClientThread::Init()
 {
-    mHost = enet_host_create(nullptr, 1, 2, 0, 0);
+    mHost = enet_host_create(nullptr, 1, CHANNEL_COUNT, 0, 0);
     if (mHost == nullptr)
     {
         spdlog::error("An error occurred while trying to create an ENet client host.");

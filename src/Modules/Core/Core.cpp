@@ -20,6 +20,8 @@
 #include "ECS/Components/CameraComponent.h"
 #include "ECS/Components/ModelComponent.h"
 #include "ECS/Components/ModelInstanceComponent.h"
+#include "ECS/Components/PingMessage.h"
+#include "ECS/Components/PongMessage.h"
 #include "ECS/Components/PositionComponent.h"
 #include "ECS/Components/ServerUptimeComponent.h"
 #include "ECS/Components/TextComponent.h"
@@ -43,7 +45,7 @@ static void RegisterAssetTypes()
 
 static void RegisterComponents(ECS::ComponentRegistry* registry)
 {
-    registry->RegisterComponent<ReplicatedComponent>();
+    registry->RegisterComponent<fc::ECS::ReplicatedComponent>();
 
     registry->RegisterComponent<CameraComponent>().add(flecs::Singleton);
     registry->RegisterComponent<ModelInstanceComponent>();
@@ -52,6 +54,9 @@ static void RegisterComponents(ECS::ComponentRegistry* registry)
     registry->RegisterReplicatedComponent<PositionComponent>("PositionComponent");
     registry->RegisterReplicatedComponent<TextComponent>("TextComponent");
     registry->RegisterReplicatedComponent<ModelComponent>("ModelComponent");
+
+    registry->RegisterMessageComponent<PingMessage>("PingMessage");
+    registry->RegisterMessageComponent<PongMessage>("PongMessage");
 }
 
 static void InitCommonECS(const flecs::world& ecs)
@@ -76,6 +81,15 @@ static void InitServerECS(const flecs::world& ecs)
                 ecs.modified<ServerUptimeComponent>();
             }
         });
+
+    // Respond to pings from clients with a pong addressed back to the sender
+    ecs.system<PingMessage, ECS::MessageSender>("HandlePing")
+        .each([](const flecs::entity e, const PingMessage& ping, const ECS::MessageSender& from)
+        {
+            e.world().entity()
+                .set<PongMessage>({.mTimestamp = ping.mTimestamp})
+                .set<ECS::MessageRecipient>({.mPeer = from.mPeer});
+        });
 }
 
 static void InitClientECS(const flecs::world& ecs)
@@ -90,6 +104,24 @@ static void InitClientECS(const flecs::world& ecs)
     camera3D.projection = CAMERA_PERSPECTIVE;
 
     ecs.set<CameraComponent>({camera3D});
+
+    // Ping the server once a second and report the round trip time when it answers
+    ecs.system("SendPing")
+        .interval(1.0f)
+        .each([&ecs] {
+            const auto now = std::chrono::steady_clock::now();
+            const auto timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count());
+
+            ecs.entity().set<PingMessage>({.mTimestamp = timestamp});
+        });
+
+    ecs.system<PongMessage>("HandlePong")
+        .each([](const PongMessage& pong) {
+            const auto now = std::chrono::steady_clock::now();
+            const auto nowMs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count());
+
+            spdlog::info("Pong received; round trip time was {} ms.", (nowMs - pong.mTimestamp) / 1'000'000);
+        });
 
     ecs.system("UpdateFrameDelta")
         .kind(PreDraw)

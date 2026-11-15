@@ -107,7 +107,7 @@ struct ReplicationRequest
 /// @param registry The @c ComponentRegistry to retrieve component descriptors from.
 /// @param forceNew Whether to mark the request as a new entity replication even if @c ReplicatedComponent is not marked as such. Useful for updating newly connected clients.
 /// @return The request.
-[[nodiscard]] inline ReplicationRequest GenerateReplicationRequest(const flecs::entity entity, const ReplicatedComponent& rep, const ECS::ComponentRegistry& registry, const bool forceNew)
+[[nodiscard]] inline ReplicationRequest GenerateReplicationRequest(const flecs::entity entity, const ECS::ReplicatedComponent& rep, const ECS::ComponentRegistry& registry, const bool forceNew)
 {
     ReplicationRequest request;
     request.mEntityId = entity.id();

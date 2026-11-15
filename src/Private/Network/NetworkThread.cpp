@@ -43,20 +43,32 @@ bool NetworkThread::PollEvent(Event& outEvent)
     return true;
 }
 
-void NetworkThread::QueueMessage(const std::string& data, ENetPeer* peer, const Channel channel, const uint32_t flags)
+bool NetworkThread::TryPopECSMessage(ECS::Message& outMessage)
 {
-    const std::vector<uint8_t> vec(data.begin(), data.end());
-    QueueMessage(vec, peer, channel, flags);
+    std::lock_guard<std::mutex> lock(mIncomingMutex);
+    if (mIncomingMessages.empty()) return false;
+
+    outMessage = std::move(mIncomingMessages.front());
+    mIncomingMessages.pop();
+    return true;
 }
 
-void NetworkThread::QueueMessage(const std::vector<uint8_t>& data, ENetPeer* peer, const Channel channel, const uint32_t flags)
+void NetworkThread::QueueMessageTo(const std::vector<uint8_t>& data, ENetPeer* peer, const Channel channel, const uint32_t flags)
 {
+    std::lock_guard<std::mutex> lock(mOutgoingMutex);
+
     mOutgoingMessages.push({
         .mData = data,
         .mPeer = peer,
         .mChannel = channel,
         .mFlags = flags
     });
+}
+
+void NetworkThread::QueueECSMessageTo(const ECS::Message& message, ENetPeer* peer)
+{
+    const std::vector<uint8_t> packet = message.Serialise();
+    QueueMessageTo(packet, peer, Channel::Messaging, ENET_PACKET_FLAG_RELIABLE);
 }
 
 void NetworkThread::Main()
@@ -113,23 +125,51 @@ void NetworkThread::Main()
 void NetworkThread::ProcessOutgoingMessages()
 {
     // TODO: add tuneable throttling
-    while (!mOutgoingMessages.empty())
+
+    // Drain under lock so senders on other threads can keep queueing while we send
+    std::queue<OutboundMessage> messages;
     {
-        OutMessage& message = mOutgoingMessages.front();
+        std::lock_guard<std::mutex> lock(mOutgoingMutex);
+        messages.swap(mOutgoingMessages);
+    }
+
+    while (!messages.empty())
+    {
+        OutboundMessage& message = messages.front();
+
+        if (message.mPeer == nullptr)
+        {
+            spdlog::warn("Dropping a {} byte message - there is no peer to send it to.", message.mData.size());
+            messages.pop();
+            continue;
+        }
 
         auto* data = new uint8_t[message.mData.size()];
         std::copy(message.mData.begin(), message.mData.end(), data);
 
-        ENetPacket* packet = enet_packet_create(data, message.mData.size(), ENET_PACKET_FLAG_RELIABLE | ENET_PACKET_FLAG_NO_ALLOCATE);
+        ENetPacket* packet = enet_packet_create(data, message.mData.size(), message.mFlags | ENET_PACKET_FLAG_NO_ALLOCATE);
+        if (packet == nullptr)
+        {
+            delete[] data;
+            messages.pop();
+            continue;
+        }
+
         packet->freeCallback = [](ENetPacket* p)
         {
             delete[] p->data;
             p->data = nullptr;
         };
 
-        enet_peer_send(message.mPeer, message.mChannel, packet);
+        // Doesn't take ownership of the packet on failure (e.g. peer not connected)
+        if (enet_peer_send(message.mPeer, message.mChannel, packet) != 0)
+        {
+            spdlog::warn("Failed to enqueue a {} byte message on channel {} for sending; dropping it.",
+                message.mData.size(), message.mChannel);
+            enet_packet_destroy(packet);
+        }
 
-        mOutgoingMessages.pop();
+        messages.pop();
     }
 }
 
@@ -155,23 +195,50 @@ void NetworkThread::HandleEvent(const ENetEvent& event)
         {
             switch (event.channelID)
             {
-                case General:
+                case Messaging:
                 {
-                    std::vector<uint8_t> data(event.packet->data, event.packet->data + event.packet->dataLength);
-
-                    std::string msg(data.begin(), data.end());
-                    spdlog::info("Queuing incoming message: {}", msg);
-
+                    ECS::Message message;
+                    if (!ECS::Message::Deserialise(event.packet->data, event.packet->dataLength, message))
                     {
+                        spdlog::warn("Received a malformed message packet ({} bytes); dropping it.", event.packet->dataLength);
+                    }
+                    else
+                    {
+                        message.mSender = event.peer;
+
                         std::lock_guard<std::mutex> lock(mIncomingMutex);
-                        mIncomingMessages.push({std::move(data), event.channelID});
+                        mIncomingMessages.push(std::move(message));
                     }
 
                     enet_packet_destroy(event.packet);
 
                     break;
                 }
+
+                case General:
+                {
+                    spdlog::warn("Received a packet on the unused General channel; dropping it.");
+                    enet_packet_destroy(event.packet);
+
+                    break;
+                }
+
+                case Replication:
+                {
+                    // Owned by ClientThread::HandleEvent, which destroys the packet
+                    break;
+                }
+
+                default:
+                {
+                    spdlog::warn("Received a packet on unknown channel {}; dropping it.", event.channelID);
+                    enet_packet_destroy(event.packet);
+
+                    break;
+                }
             }
+
+            break;
         }
 
         default:
