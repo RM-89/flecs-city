@@ -1,6 +1,6 @@
 #pragma once
 
-namespace fc
+namespace fc::Core
 {
 
 /// @brief Replicated singleton component for tracking server uptime.
@@ -9,4 +9,4 @@ struct ServerUptimeComponent
     int mUptime_s{0};
 };
 
-}; // namespace fc
+} // namespace fc::Core

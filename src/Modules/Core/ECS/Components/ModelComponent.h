@@ -4,7 +4,7 @@
 
 #include "Assets/AssetTypes.h"
 
-namespace fc
+namespace fc::Core
 {
 
 /// @brief References a model asset by ID.
@@ -15,4 +15,4 @@ struct ModelComponent
     Color mTint = WHITE;
 };
 
-}; // namespace fc
+} // namespace fc::Core

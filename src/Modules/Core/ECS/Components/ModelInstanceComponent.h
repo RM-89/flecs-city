@@ -2,7 +2,7 @@
 
 #include <raylib.h>
 
-namespace fc
+namespace fc::Core
 {
 
 /// @brief Wraps a model instance loaded by Raylib. Should be initialised from a @c ModelComponent.
@@ -13,4 +13,4 @@ struct ModelInstanceComponent
     Color mTint;
 };
 
-}; // namespace fc
+} // namespace fc::Core

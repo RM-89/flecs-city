@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-namespace fc
+namespace fc::Core
 {
 
 /// @brief Text component for debugging use.
@@ -33,4 +33,4 @@ struct TextComponent
     }
 };
 
-}; // namespace fc
+} // namespace fc::Core

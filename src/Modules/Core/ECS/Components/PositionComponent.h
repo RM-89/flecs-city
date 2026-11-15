@@ -2,7 +2,7 @@
 
 #include <raylib.h>
 
-namespace fc
+namespace fc::Core
 {
 
 /// @brief 3D vector position component.
@@ -11,4 +11,4 @@ struct PositionComponent
     Vector3 mPosition;
 };
 
-}; // namespace fc
+} // namespace fc::Core

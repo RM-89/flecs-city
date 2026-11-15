@@ -45,8 +45,6 @@ static void RegisterAssetTypes()
 
 static void RegisterComponents(ECS::ComponentRegistry* registry)
 {
-    registry->RegisterComponent<fc::ECS::ReplicatedComponent>();
-
     registry->RegisterComponent<CameraComponent>().add(flecs::Singleton);
     registry->RegisterComponent<ModelInstanceComponent>();
 

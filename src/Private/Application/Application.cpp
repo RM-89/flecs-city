@@ -51,6 +51,7 @@ int Application::Run(Environment::Options& options, std::vector<Module>& modules
     }
 
     spdlog::info("Registering components...");
+    mComponentRegistry->RegisterComponent<ECS::ReplicatedComponent>();
     mComponentRegistry->RegisterComponent<ECS::MessageOutgoingTag>();
     mComponentRegistry->RegisterComponent<ECS::MessageIncomingTag>();
     mComponentRegistry->RegisterComponent<ECS::MessageRecipient>();

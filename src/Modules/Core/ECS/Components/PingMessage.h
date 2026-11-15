@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace fc
+namespace fc::Core
 {
 
 /// @brief Message sent by the client to request a pong from the server.
@@ -12,4 +12,4 @@ struct PingMessage
     uint64_t mTimestamp{0};
 };
 
-}; // namespace fc
+} // namespace fc::Core
