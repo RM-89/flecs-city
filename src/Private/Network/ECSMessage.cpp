@@ -119,11 +119,6 @@ void ProcessEndFrameECSMessages(NetworkThread* thread, const ECS::ComponentRegis
 
                 thread->QueueECSMessage(message);
             }
-            else
-            {
-                // No network thread; this message is for the local ECS world.
-                entity.set<ECS::MessageSender>({ nullptr });
-            }
         }
 
         if (!isMessage)

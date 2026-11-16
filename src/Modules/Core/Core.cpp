@@ -80,14 +80,16 @@ static void InitServerECS(const flecs::world& ecs)
             }
         });
 
-    // Respond to pings from clients with a pong addressed back to the sender
-    ecs.system<PingMessage, ECS::MessageSender>("HandlePing")
-        .each([](const flecs::entity e, const PingMessage& ping, const ECS::MessageSender& from)
+    // Respond to pings with pongs. MessageSender is optional:
+    // In networked modes, we expect the message to have a sender and therefore address the pong to that sender.
+    // No sender implies we're in monolith mode, which means the pong can be picked up by client systems in the same world.
+    ecs.system<PingMessage, ECS::MessageSender*>("HandlePing")
+        .each([](const flecs::entity e, const PingMessage& ping, const ECS::MessageSender* from)
         {
             spdlog::info("Server: Ping received; sending pong.");
-            e.world().entity()
-                .set<PongMessage>({.mTimestamp = ping.mTimestamp})
-                .set<ECS::MessageRecipient>({.mPeer = from.mPeer});
+            const auto entity = e.world().entity();
+            entity.set<PongMessage>({.mTimestamp = ping.mTimestamp});
+            if (from != nullptr) entity.set<ECS::MessageRecipient>({ .mPeer = from->mPeer });
         });
 }
 
