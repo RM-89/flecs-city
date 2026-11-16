@@ -6,15 +6,18 @@
 namespace fc::Network
 {
 
-/// @brief Creates entities from incoming message packets.
+/// @brief Deletes processed entities from messages that were received in the previous tick and creates entities from
+/// incoming message packets.
 ///
-/// @param thread The network thread to process messages from.
+/// @param thread The network thread to process messages from, or nullptr if the messages are local (monolith mode).
 /// @param registry The component registry to resolve components from.
-void DrainIncomingECSMessages(NetworkThread& thread, const ECS::ComponentRegistry& registry);
+void ProcessStartFrameECSMessages(NetworkThread* thread, const ECS::ComponentRegistry& registry);
 
-/// @brief Sends outgoing message entities and destroys all processed message entities.
+/// @brief Deletes processed entities from messages that were sent in the previous tick, sends new messages created in
+/// this frame, and marks received message entities as processed ready for cleanup by @c ProcessStartFrameECSMessages
+/// in the next tick.
 ///
-/// @param thread The network thread to send with, or nullptr to drop outgoing messages instead (used in monolith mode, which has no peers).
+/// @param thread The network thread to send with, or nullptr if the messages are local (monolith mode).
 /// @param registry The component registry to resolve components from.
 void ProcessEndFrameECSMessages(NetworkThread* thread, const ECS::ComponentRegistry& registry);
 

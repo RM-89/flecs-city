@@ -84,6 +84,7 @@ static void InitServerECS(const flecs::world& ecs)
     ecs.system<PingMessage, ECS::MessageSender>("HandlePing")
         .each([](const flecs::entity e, const PingMessage& ping, const ECS::MessageSender& from)
         {
+            spdlog::info("Server: Ping received; sending pong.");
             e.world().entity()
                 .set<PongMessage>({.mTimestamp = ping.mTimestamp})
                 .set<ECS::MessageRecipient>({.mPeer = from.mPeer});
@@ -110,6 +111,7 @@ static void InitClientECS(const flecs::world& ecs)
             const auto now = std::chrono::steady_clock::now();
             const auto timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count());
 
+            spdlog::info("Client: Sent ping.");
             ecs.entity().set<PingMessage>({.mTimestamp = timestamp});
         });
 
@@ -118,7 +120,7 @@ static void InitClientECS(const flecs::world& ecs)
             const auto now = std::chrono::steady_clock::now();
             const auto nowMs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count());
 
-            spdlog::info("Pong received; round trip time was {} ms.", (nowMs - pong.mTimestamp) / 1'000'000);
+            spdlog::info("Client: Pong received; round trip time was {} ms.", (nowMs - pong.mTimestamp) / 1'000'000);
         });
 
     ecs.system("UpdateFrameDelta")

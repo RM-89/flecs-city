@@ -47,12 +47,29 @@ static flecs::entity CreateEntity(const ECS::ComponentRegistry& registry, const 
     return entity;
 }
 
-void DrainIncomingECSMessages(NetworkThread& thread, const ECS::ComponentRegistry& registry)
+void ProcessStartFrameECSMessages(NetworkThread* thread, const ECS::ComponentRegistry& registry)
 {
-    ECS::Message message;
-    while (thread.TryPopECSMessage(message))
+    flecs::world& ecs = registry.GetWorld();
+
+    auto processedIncoming = ecs.query_builder<>()
+        .with<ECS::MessageIncomingTag>()
+        .with<ECS::MessageProcessedTag>()
+        .build();
+
+    ecs.defer_begin();
+    processedIncoming.each([](const flecs::entity entity) {
+        entity.destruct();
+    });
+    ecs.defer_end();
+
+
+    if (thread != nullptr)
     {
-        CreateEntity(registry, message);
+        ECS::Message message;
+        while (thread->TryPopECSMessage(message))
+        {
+            CreateEntity(registry, message);
+        }
     }
 }
 
@@ -60,13 +77,25 @@ void ProcessEndFrameECSMessages(NetworkThread* thread, const ECS::ComponentRegis
 {
     flecs::world& ecs = registry.GetWorld();
 
-    // 1. Send outgoing message entities, then collect them for destruction
+    // 1. Clean up processed outgoing messages from the previous tick
+    auto processedOutgoing = ecs.query_builder<>()
+        .with<ECS::MessageOutgoingTag>()
+        .with<ECS::MessageProcessedTag>()
+        .build();
+
+    ecs.defer_begin();
+    processedOutgoing.each([](const flecs::entity entity) {
+        entity.destruct();
+    });
+    ecs.defer_end();
+
+    // 2. Send outgoing message entities, then collect them for destruction
     auto outgoing = ecs.query_builder()
         .with<ECS::MessageOutgoingTag>()
         .without<ECS::MessageIncomingTag>()
+        .without<ECS::MessageProcessedTag>()
         .build();
 
-    std::vector<flecs::entity_t> sentEntities;
     outgoing.each([&](const flecs::entity entity) {
         const ECS::MessageRecipient* recipient = entity.try_get<ECS::MessageRecipient>();
 
@@ -90,6 +119,11 @@ void ProcessEndFrameECSMessages(NetworkThread* thread, const ECS::ComponentRegis
 
                 thread->QueueECSMessage(message);
             }
+            else
+            {
+                // No network thread; this message is for the local ECS world.
+                entity.set<ECS::MessageSender>({ nullptr });
+            }
         }
 
         if (!isMessage)
@@ -97,29 +131,17 @@ void ProcessEndFrameECSMessages(NetworkThread* thread, const ECS::ComponentRegis
             spdlog::warn("Entity {} is tagged as a message but has no registered message component.", entity.id());
         }
 
-        sentEntities.push_back(entity.id());
+        entity.add<ECS::MessageProcessedTag>();
     });
 
-    // 2. Collect received message entities - systems have processed them by now
+    // 3. Mark received message entities as processed
     auto incoming = ecs.query_builder()
         .with<ECS::MessageIncomingTag>()
         .build();
 
-    std::vector<flecs::entity_t> receivedEntities;
     incoming.each([&](const flecs::entity entity) {
-        receivedEntities.push_back(entity.id());
+        entity.add<ECS::MessageProcessedTag>();
     });
-
-    // 3. Destroy both sets
-    for (const flecs::entity_t id : sentEntities)
-    {
-        ecs.entity(id).destruct();
-    }
-
-    for (const flecs::entity_t id : receivedEntities)
-    {
-        ecs.entity(id).destruct();
-    }
 }
 
 } // namespace fc::Network

@@ -54,6 +54,7 @@ int Application::Run(Environment::Options& options, std::vector<Module>& modules
     mComponentRegistry->RegisterComponent<ECS::ReplicatedComponent>();
     mComponentRegistry->RegisterComponent<ECS::MessageOutgoingTag>();
     mComponentRegistry->RegisterComponent<ECS::MessageIncomingTag>();
+    mComponentRegistry->RegisterComponent<ECS::MessageProcessedTag>();
     mComponentRegistry->RegisterComponent<ECS::MessageRecipient>();
     mComponentRegistry->RegisterComponent<ECS::MessageSender>();
 
@@ -105,7 +106,7 @@ int Application::RunAsServer(Environment::Options& options, const std::vector<Mo
     spdlog::info("Entering main loop...");
     while (!mShouldQuit)
     {
-        Network::DrainIncomingECSMessages(serverThread, *mComponentRegistry);
+        Network::ProcessStartFrameECSMessages(&serverThread, *mComponentRegistry);
         mEcs.progress();
         UpdateReplication(serverThread);
         Network::ProcessEndFrameECSMessages(&serverThread, *mComponentRegistry);
@@ -162,7 +163,7 @@ int Application::RunAsClient(Environment::Options& options, const std::vector<Mo
     spdlog::info("Entering main loop...");
     while (!WindowShouldClose())
     {
-        Network::DrainIncomingECSMessages(clientThread, *mComponentRegistry);
+        Network::ProcessStartFrameECSMessages(&clientThread, *mComponentRegistry);
         clientThread.ProcessReplicationQueue(mComponentRegistry);
         mEcs.progress();
         Network::ProcessEndFrameECSMessages(&clientThread, *mComponentRegistry);
@@ -188,9 +189,8 @@ int Application::RunAsMonolith(Environment::Options& options, const std::vector<
     spdlog::info("Entering main loop...");
     while (!WindowShouldClose())
     {
+        Network::ProcessStartFrameECSMessages(nullptr, *mComponentRegistry);
         mEcs.progress();
-
-        // Network messages are processed in the same ECS world in monolith mode, so we only need to clean them up
         Network::ProcessEndFrameECSMessages(nullptr, *mComponentRegistry);
     }
 

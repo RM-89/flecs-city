@@ -54,12 +54,6 @@ std::vector<ENetPeer*> ServerThread::PopNewPeers()
     return peers;
 }
 
-void ServerThread::SetClientReady(ENetPeer* peer)
-{
-    std::lock_guard<std::mutex> lock(mReplicationMutex);
-    mReadyPeers.insert(peer); 
-}
-
 bool ServerThread::Init()
 {
     mConnectedPeers.clear();

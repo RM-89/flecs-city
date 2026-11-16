@@ -19,7 +19,6 @@ public:
     explicit ServerThread(uint32_t listenPort);
 
     std::vector<ENetPeer*> PopNewPeers();
-    void SetClientReady(ENetPeer* peer);
 
     void QueueReplicationRequest(const ReplicationRequest& packet);
 

@@ -16,9 +16,8 @@ namespace fc::Network
 
 enum Channel : uint8_t
 {
-    General = 0,
-    Replication = 1,
-    Messaging = 2
+    Replication = 0,
+    Messaging = 1
 };
 
 struct Event

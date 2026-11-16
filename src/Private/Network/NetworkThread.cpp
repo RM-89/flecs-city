@@ -195,6 +195,12 @@ void NetworkThread::HandleEvent(const ENetEvent& event)
         {
             switch (event.channelID)
             {
+                case Replication:
+                {
+                    // Owned by ClientThread::HandleEvent, which destroys the packet
+                    break;
+                }
+
                 case Messaging:
                 {
                     ECS::Message message;
@@ -212,20 +218,6 @@ void NetworkThread::HandleEvent(const ENetEvent& event)
 
                     enet_packet_destroy(event.packet);
 
-                    break;
-                }
-
-                case General:
-                {
-                    spdlog::warn("Received a packet on the unused General channel; dropping it.");
-                    enet_packet_destroy(event.packet);
-
-                    break;
-                }
-
-                case Replication:
-                {
-                    // Owned by ClientThread::HandleEvent, which destroys the packet
                     break;
                 }
 

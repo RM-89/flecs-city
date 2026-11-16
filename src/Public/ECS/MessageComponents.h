@@ -7,6 +7,7 @@ namespace fc::ECS
 
 struct MessageOutgoingTag {};
 struct MessageIncomingTag {};
+struct MessageProcessedTag {};
 
 struct MessageRecipient
 {
